@@ -32,8 +32,8 @@ vygr research "q" --llm openrouter:deepseek/deepseek-chat
 ## Install
 
 ```sh
-cargo install --path crates/cli --bin vygr   # from a checkout
-cargo build --workspace --release            # ./target/release/vygr
+./install.sh                                 # prebuilt from releases, or cargo from a checkout
+cargo install --path crates/cli --bin vygr   # from source
 ```
 
 ## Commands
@@ -111,7 +111,9 @@ Phase 3 complete (`v0.4.0`): the research command runs a real iterative
 loop (breadth halving, distilled reflections, BM25, per-call budget guard,
 `--output-schema`), and `vygr serve` exposes the tool as an MCP server
 over stdio with token-safe paged artifact reads. Search/extract/cache and
-eight providers all working. Not yet: release binaries, `npx skills`
-publishing (needs a public repo), headless-browser fetch escalation.
+eight providers all working. Release tarballs build
+automatically on tag push (CI) with an install script. Pending user
+action: push to a public GitHub repo (releases + `npx skills`), and
+provider API keys for live search beyond DuckDuckGo.
 
 License: MIT.

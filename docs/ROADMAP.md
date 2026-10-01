@@ -108,8 +108,10 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 
 ## Phase 4 — distribution
 
-- [ ] GitHub release binaries (linux/macOS x64/arm64) + install script.
-- [ ] Publish skill: `npx skills add <owner>/voyager`.
+- [x] Release workflow builds linux/macOS x64/arm64 tarballs on tag push;
+      `install.sh` prefers prebuilt binaries and falls back to cargo. Pushing
+      a tag to GitHub is all that remains (needs the user's repo).
+- [ ] Publish skill: `npx skills add <owner>/voyager` (needs a public repo).
 - [ ] `vygr init --agent <id>` covering more harnesses; detect running agent.
 
 ## Phase 5 — fetch escalation
