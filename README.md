@@ -104,9 +104,11 @@ budget_usd = 0.50
 
 ## Status
 
-Phase 0 scaffold (see roadmap): search/extract/models/plan/schema/config/
-init are working; `research` runs a single full pass and needs an LLM
-backend (`--llm …` or config). Not yet: iteration across depth levels,
-caching, MCP.
+Phase 1 complete (`v0.2.0`, see roadmap): rate limiting with retry/backoff
+and cross-process spacing, disk cache with query-class TTLs (`vygr cache`),
+time-range and domain filters, eight search providers (ddgs, brave, tavily,
+searxng, exa, serper, jina, kagi) and structured markdown extraction.
+`research` runs a single full pass and needs an LLM backend (`--llm …` or
+config). Not yet: iteration across depth levels, MCP server.
 
 License: MIT.
