@@ -184,7 +184,7 @@ pub fn dedup(results: Vec<SearchResult>) -> Vec<SearchResult> {
     let mut out: Vec<SearchResult> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
     for r in results {
-        let key = normalize_url(&r.url);
+        let key = url_key(&r.url);
         match index.get(&key) {
             Some(&i) => {
                 if !out[i].providers.contains(&r.provider) {
@@ -200,7 +200,9 @@ pub fn dedup(results: Vec<SearchResult>) -> Vec<SearchResult> {
     out
 }
 
-fn normalize_url(url: &str) -> String {
+/// Normalized identity of a URL for dedup across searches and levels
+/// (scheme, `www.`, trailing slash and case stripped).
+pub fn url_key(url: &str) -> String {
     let u = url.trim();
     let u = u
         .strip_prefix("https://")

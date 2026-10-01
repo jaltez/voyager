@@ -12,6 +12,7 @@
 
 pub mod harness;
 pub mod models_dev;
+pub mod ollama;
 pub mod openai_compat;
 
 use async_trait::async_trait;
@@ -53,6 +54,10 @@ pub struct CompletionRequest {
     pub messages: Vec<ChatMessage>,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f64>,
+    /// Ask JSON-object-capable backends for `response_format` (M2.5).
+    /// Backends without support simply ignore it; callers must still
+    /// instruct the model to emit JSON and validate the reply.
+    pub json_object: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -105,9 +110,22 @@ pub async fn resolve(
     };
 
     match backend.as_str() {
-        "pi" => Ok(Box::new(harness::HarnessLlm::new("pi", &["--print"]))),
-        "claude" => Ok(Box::new(harness::HarnessLlm::new("claude", &["-p"]))),
-        "codex" => Ok(Box::new(harness::HarnessLlm::new("codex", &["exec"]))),
+        // pi and claude document piped-stdin prompts; codex takes argv.
+        "pi" => Ok(Box::new(harness::HarnessLlm::new(
+            "pi",
+            &["--print"],
+            harness::PromptChannel::Stdin,
+        ))),
+        "claude" => Ok(Box::new(harness::HarnessLlm::new(
+            "claude",
+            &["-p"],
+            harness::PromptChannel::Stdin,
+        ))),
+        "codex" => Ok(Box::new(harness::HarnessLlm::new(
+            "codex",
+            &["exec"],
+            harness::PromptChannel::Arg,
+        ))),
         "ollama" => {
             let model = spec_model.or_else(|| cfg.model.clone()).ok_or_else(|| {
                 VygrError::Config(
@@ -117,13 +135,11 @@ pub async fn resolve(
             let base = cfg
                 .base_url
                 .clone()
-                .unwrap_or_else(|| "http://localhost:11434/v1".to_string());
-            Ok(Box::new(openai_compat::OpenAiCompatible::new(
+                .unwrap_or_else(|| "http://localhost:11434".to_string());
+            Ok(Box::new(ollama::OllamaClient::new(
                 http.clone(),
                 base,
-                None,
                 model,
-                None,
             )))
         }
         "openai-compat" | "openai-compatible" | "custom" => {

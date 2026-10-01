@@ -42,6 +42,14 @@ struct ReqBody<'a> {
     max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response_format: Option<RespFormat>,
+}
+
+#[derive(Serialize)]
+struct RespFormat {
+    #[serde(rename = "type")]
+    kind: &'static str,
 }
 
 #[derive(Serialize)]
@@ -69,6 +77,10 @@ struct RespChoice {
 struct RespMessage {
     #[serde(default)]
     content: Option<String>,
+    /// Reasoning models (qwen3.5, deepseek-r1, …) put their answer here
+    /// when `content` comes back empty.
+    #[serde(default)]
+    reasoning: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -102,6 +114,9 @@ impl LlmClient for OpenAiCompatible {
                 .collect(),
             max_tokens: req.max_tokens,
             temperature: req.temperature,
+            response_format: req.json_object.then_some(RespFormat {
+                kind: "json_object",
+            }),
         };
 
         let mut request = self
@@ -110,6 +125,9 @@ impl LlmClient for OpenAiCompatible {
                 "{}/chat/completions",
                 self.base_url.trim_end_matches('/')
             ))
+            // Local models may cold-load and reason for minutes; the shared
+            // 30s client timeout does not apply to chat completions.
+            .timeout(std::time::Duration::from_secs(600))
             .json(&body);
         if let Some(key) = &self.api_key {
             request = request.bearer_auth(key);
@@ -144,12 +162,7 @@ impl LlmClient for OpenAiCompatible {
             .await
             .map_err(|e| VygrError::Parse(format!("llm response: {e}")))?;
 
-        let content = parsed
-            .choices
-            .into_iter()
-            .next()
-            .and_then(|c| c.message.content)
-            .unwrap_or_default();
+        let content = extract_content(parsed.choices.into_iter().next().map(|c| c.message));
         let usage = parsed.usage.map(|u| TokenUsage {
             input_tokens: u.prompt_tokens.unwrap_or(0),
             output_tokens: u.completion_tokens.unwrap_or(0),
@@ -168,5 +181,64 @@ impl LlmClient for OpenAiCompatible {
 
     fn describe(&self) -> String {
         format!("openai-compatible {} ({})", self.model, self.base_url)
+    }
+}
+
+/// Answer text extraction: `content` is authoritative; when it comes back
+/// empty (reasoning models) fall back to the `reasoning` field. Inline
+/// `<think>…</think>` blocks are stripped in both cases.
+fn extract_content(message: Option<RespMessage>) -> String {
+    let Some(m) = message else {
+        return String::new();
+    };
+    let content = strip_think(&m.content.unwrap_or_default());
+    if !content.trim().is_empty() {
+        return content;
+    }
+    strip_think(&m.reasoning.unwrap_or_default())
+}
+
+fn strip_think(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("<think>") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + "<think>".len()..];
+        match after.find("</think>") {
+            Some(end) => rest = &after[end + "</think>".len()..],
+            // Unclosed think block: everything after the tag is reasoning.
+            None => {
+                rest = "";
+                break;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_think_blocks_and_handles_unclosed() {
+        assert_eq!(strip_think("a<think>hidden</think>b"), "ab");
+        assert_eq!(strip_think("<think>only reasoning"), "");
+        assert_eq!(strip_think("plain"), "plain");
+    }
+
+    #[test]
+    fn reasoning_field_fallback() {
+        let m = RespMessage {
+            content: Some("  ".to_string()),
+            reasoning: Some("final text".to_string()),
+        };
+        assert_eq!(extract_content(Some(m)), "final text");
+        let m = RespMessage {
+            content: Some("<think>x</think>answer".to_string()),
+            reasoning: None,
+        };
+        assert_eq!(extract_content(Some(m)), "answer");
     }
 }

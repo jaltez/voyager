@@ -2045,11 +2045,14 @@ dependencies = [
 name = "vygr-research"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "futures",
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
+ "tokio",
  "tracing",
  "vygr-core",
  "vygr-llm",

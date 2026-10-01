@@ -16,3 +16,8 @@ reqwest = { workspace = true }
 futures = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+tempfile = { workspace = true }
