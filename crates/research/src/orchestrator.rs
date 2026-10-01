@@ -56,6 +56,10 @@ pub struct ResearchRequest {
     pub politeness: vygr_core::config::PolitenessConf,
     /// Disk cache configuration for the search chain.
     pub cache: vygr_core::config::CacheConf,
+    /// Filters applied to every research search (M1.3).
+    pub time_range: Option<vygr_core::provider::TimeRange>,
+    pub include_domains: Vec<String>,
+    pub exclude_domains: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -142,7 +146,11 @@ pub async fn run(
     )?;
     let mut results: Vec<SearchResult> = Vec::new();
     for sq in &subqueries {
-        let q = SearchQuery::new(sq.clone(), req.max_results_per_query);
+        let q = SearchQuery::new(sq.clone(), req.max_results_per_query).with_filters(
+            req.time_range,
+            req.include_domains.clone(),
+            req.exclude_domains.clone(),
+        );
         let (rs, w) = vygr_providers::search_chain(&handle.providers, &q).await;
         warnings.extend(w);
         results.extend(rs);

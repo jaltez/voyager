@@ -106,7 +106,8 @@ pub fn build_chain(
 }
 
 /// Run the chain in order; the first provider with a non-empty result set
-/// wins, failures degrade to the next provider (hsearch-style fallback).
+/// (after domain filters) wins, failures degrade to the next provider
+/// (hsearch-style fallback).
 pub async fn search_chain(
     chain: &[Box<dyn SearchProvider>],
     query: &SearchQuery,
@@ -114,8 +115,16 @@ pub async fn search_chain(
     let mut warnings = Vec::new();
     for provider in chain {
         match provider.search(query).await {
-            Ok(results) if !results.is_empty() => return (results, warnings),
-            Ok(_) => warnings.push(format!("{}: no results", provider.id())),
+            Ok(results) => {
+                let filtered = filter_domains(results, query);
+                if !filtered.is_empty() {
+                    return (filtered, warnings);
+                }
+                warnings.push(format!(
+                    "{}: no results after domain filters",
+                    provider.id()
+                ));
+            }
             // VygrError::Provider already carries the provider id.
             Err(e) => warnings.push(e.to_string()),
         }
@@ -138,7 +147,7 @@ pub async fn search_all(
             Err(e) => warnings.push(e.to_string()),
         }
     }
-    (dedup(all), warnings)
+    (filter_domains(dedup(all), query), warnings)
 }
 
 /// Merge results that point at the same normalized URL, recording which
@@ -173,6 +182,52 @@ fn normalize_url(url: &str) -> String {
     u.trim_end_matches('/').to_lowercase()
 }
 
+/// Host of a URL, normalized for domain matching (scheme, `www.` and port
+/// stripped).
+pub fn host_of(url: &str) -> String {
+    let u = url.trim();
+    let u = u
+        .strip_prefix("https://")
+        .or_else(|| u.strip_prefix("http://"))
+        .unwrap_or(u);
+    let u = u.strip_prefix("www.").unwrap_or(u);
+    let end = u.find('/').unwrap_or(u.len());
+    u[..end].split(':').next().unwrap_or("").to_lowercase()
+}
+
+fn domain_matches(host: &str, domain: &str) -> bool {
+    host == domain || host.ends_with(&format!(".{domain}"))
+}
+
+/// Apply the query's include/exclude domain filters client-side (M1.3) —
+/// uniformly across providers, including those with native support.
+pub fn filter_domains(results: Vec<SearchResult>, query: &SearchQuery) -> Vec<SearchResult> {
+    if query.include_domains.is_empty() && query.exclude_domains.is_empty() {
+        return results;
+    }
+    results
+        .into_iter()
+        .filter(|r| {
+            let host = host_of(&r.url);
+            if host.is_empty() {
+                return false;
+            }
+            if query
+                .exclude_domains
+                .iter()
+                .any(|d| domain_matches(&host, d))
+            {
+                return false;
+            }
+            query.include_domains.is_empty()
+                || query
+                    .include_domains
+                    .iter()
+                    .any(|d| domain_matches(&host, d))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,5 +252,38 @@ mod tests {
         ]);
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[0].providers, vec!["ddgs", "brave"]);
+    }
+
+    #[test]
+    fn host_extraction_normalizes() {
+        assert_eq!(
+            host_of("https://Blog.Rust-Lang.org/x?y=1"),
+            "blog.rust-lang.org"
+        );
+        assert_eq!(host_of("http://www.Example.com:8080/a"), "example.com");
+        assert_eq!(host_of("https://a.io"), "a.io");
+    }
+
+    #[test]
+    fn domain_filters_allowlist_and_blocklist() {
+        let results = vec![
+            hit("ddgs", "https://doc.rust-lang.org/std/"),
+            hit("ddgs", "https://blog.rust-lang.org/inside-rust"),
+            hit("ddgs", "https://ziglang.org/news"),
+        ];
+        let allow =
+            SearchQuery::new("q", 5).with_filters(None, vec!["rust-lang.org".into()], vec![]);
+        let kept = filter_domains(results.clone(), &allow);
+        assert_eq!(kept.len(), 2);
+
+        let block =
+            SearchQuery::new("q", 5).with_filters(None, vec![], vec!["blog.rust-lang.org".into()]);
+        let kept = filter_domains(results.clone(), &block);
+        assert_eq!(kept.len(), 2);
+        assert!(kept.iter().all(|r| !r.url.contains("blog.")));
+
+        // No filters configured: everything passes through untouched.
+        let plain = SearchQuery::new("q", 5);
+        assert_eq!(filter_domains(results, &plain).len(), 3);
     }
 }

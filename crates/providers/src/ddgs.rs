@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use scraper::{Html, Selector};
-use vygr_core::provider::{SearchProvider, SearchQuery};
+use vygr_core::provider::{SearchProvider, SearchQuery, TimeRange};
 use vygr_core::types::SearchResult;
 use vygr_core::VygrError;
 
@@ -27,10 +27,7 @@ impl SearchProvider for DdgSearch {
     }
 
     async fn search(&self, q: &SearchQuery) -> Result<Vec<SearchResult>, VygrError> {
-        let url = format!(
-            "https://html.duckduckgo.com/html/?q={}",
-            utf8_percent_encode(&q.query, NON_ALPHANUMERIC)
-        );
+        let url = build_url(&q.query, q.time_range);
         let resp = self
             .http
             .get(&url)
@@ -67,6 +64,20 @@ impl SearchProvider for DdgSearch {
         results.truncate(q.max_results);
         Ok(results)
     }
+}
+
+/// Build the DuckDuckGo HTML endpoint URL, including the `df` freshness
+/// parameter when a time range is requested.
+pub fn build_url(query: &str, time_range: Option<TimeRange>) -> String {
+    let mut url = format!(
+        "https://html.duckduckgo.com/html/?q={}",
+        utf8_percent_encode(query, NON_ALPHANUMERIC)
+    );
+    if let Some(range) = time_range {
+        url.push_str("&df=");
+        url.push_str(range.ddg_param());
+    }
+    url
 }
 
 pub fn parse_ddg_html(html: &str) -> Result<Vec<SearchResult>, VygrError> {
@@ -150,5 +161,17 @@ mod tests {
             "https://example.com/page"
         );
         assert_eq!(clean_ddg_url("https://example.com"), "https://example.com");
+    }
+
+    #[test]
+    fn build_url_encodes_query_and_freshness() {
+        assert_eq!(
+            build_url("rust lang", None),
+            "https://html.duckduckgo.com/html/?q=rust%20lang"
+        );
+        assert_eq!(
+            build_url("rust lang", Some(TimeRange::Week)),
+            "https://html.duckduckgo.com/html/?q=rust%20lang&df=w"
+        );
     }
 }

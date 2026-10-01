@@ -35,13 +35,17 @@ impl SearchProvider for BraveSearch {
             .filter(|k| !k.trim().is_empty())
             .ok_or_else(|| VygrError::Auth(format!("set {ENV} to use the brave provider")))?;
 
+        let mut params: Vec<(&str, String)> = vec![
+            ("q", q.query.clone()),
+            ("count", q.max_results.min(20).to_string()),
+        ];
+        if let Some(range) = q.time_range {
+            params.push(("freshness", range.brave_param().to_string()));
+        }
         let resp = self
             .http
             .get(ENDPOINT)
-            .query(&[
-                ("q", q.query.as_str()),
-                ("count", &q.max_results.min(20).to_string()),
-            ])
+            .query(&params)
             .header("X-Subscription-Token", &key)
             .header(reqwest::header::ACCEPT, "application/json")
             .send()

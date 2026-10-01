@@ -6,7 +6,7 @@ use vygr_core::config::Config;
 use vygr_core::provider::{FetchProvider, SearchQuery};
 use vygr_core::VygrError;
 
-use crate::commands::read_query;
+use crate::commands::{parse_domain_list, read_query};
 use crate::output::{render_search, SearchFormat};
 
 #[derive(Debug, ClapArgs)]
@@ -40,6 +40,18 @@ pub struct Args {
     /// Force this TTL (seconds) for every query class
     #[arg(long)]
     pub cache_ttl: Option<u64>,
+
+    /// Restrict results by freshness: day|week|month|year (where supported)
+    #[arg(long)]
+    pub time_range: Option<String>,
+
+    /// Comma-separated domain allowlist (empty = allow all)
+    #[arg(long)]
+    pub include_domains: Option<String>,
+
+    /// Comma-separated domain blocklist
+    #[arg(long)]
+    pub exclude_domains: Option<String>,
 }
 
 pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), VygrError> {
@@ -75,7 +87,14 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         &cfg.cache,
         &cache_opts,
     )?;
-    let q = SearchQuery::new(query.clone(), args.max_results);
+    let q = SearchQuery::new(query.clone(), args.max_results).with_filters(
+        match args.time_range.as_deref() {
+            Some(s) => Some(vygr_core::provider::TimeRange::parse(s)?),
+            None => None,
+        },
+        parse_domain_list(args.include_domains.as_deref()),
+        parse_domain_list(args.exclude_domains.as_deref()),
+    );
     let (mut results, warnings) = if args.all {
         vygr_providers::search_all(&handle.providers, &q).await
     } else {

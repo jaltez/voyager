@@ -67,6 +67,16 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         run_dir_base: cfg.research.run_dir.clone(),
         politeness: cfg.politeness.clone(),
         cache: cfg.cache.clone(),
+        time_range: match cfg.research.time_range.as_deref() {
+            Some(s) => Some(vygr_core::provider::TimeRange::parse(s)?),
+            None => None,
+        },
+        include_domains: vygr_core::provider::normalize_domains(
+            cfg.research.include_domains.clone(),
+        ),
+        exclude_domains: vygr_core::provider::normalize_domains(
+            cfg.research.exclude_domains.clone(),
+        ),
     };
 
     let report = vygr_research::run(request, llm, http).await?;

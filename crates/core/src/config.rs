@@ -56,6 +56,11 @@ pub struct ResearchConf {
     pub context_max_chars: usize,
     /// Base directory for run artifacts; defaults to `./agents/voyager`.
     pub run_dir: Option<String>,
+    /// Freshness filter for research searches ("day|week|month|year").
+    pub time_range: Option<String>,
+    /// Domain allowlist/blocklist applied to every research search.
+    pub include_domains: Vec<String>,
+    pub exclude_domains: Vec<String>,
 }
 
 impl Default for ResearchConf {
@@ -69,6 +74,9 @@ impl Default for ResearchConf {
             fetch_top: 4,
             context_max_chars: 24_000,
             run_dir: None,
+            time_range: None,
+            include_domains: Vec::new(),
+            exclude_domains: Vec::new(),
         }
     }
 }
