@@ -43,35 +43,44 @@ Combinators in `vygr-providers` give the multi-provider behavior:
 `--llm <spec>` resolves to a backend:
 
 - `pi` / `claude` / `codex` — **harness shell-out**: vygr runs the harness in
-  print mode (`pi --print <prompt>`) and treats stdout as the completion. This
-  reuses the harness's configured model and credentials with no MCP
-  pass-through.
-- `ollama:<model>` — local, via Ollama's OpenAI-compatible `/v1` endpoint.
-- `openai-compat` + `[llm] base_url/model` — any custom endpoint.
+  print mode and pipes the prompt through stdin (argv carries a short
+  instruction), reusing the harness's configured model and credentials with
+  no MCP pass-through. `codex` keeps the argv channel with a size guard.
+- `ollama:<model>` — **native** `/api/chat` client with `think: false` and
+  `format: "json"` (ADR-0013); the OpenAI-compatible endpoint ignores
+  thinking control, which reasoning models need disabled.
+- `openai-compat` + `[llm] base_url/model` — any custom endpoint; reasoning
+  models answered via the `reasoning` field are supported (`<think>`
+  blocks stripped).
 - `<provider>:<model>` — any models.dev provider with an OpenAI-compatible
   base URL (e.g. `openrouter:anthropic/claude-sonnet-4.5`). The models.dev
   catalog (cached 24h) also supplies per-token pricing used for cost
   accounting.
 
-## Research loop (ADR-0005)
+## Research loop (ADR-0005, ADR-0012)
 
 ```
 query ──> planner (LLM: sub-queries up-front + depth in [min,max])
-      ├──> per-subquery search (chain or fan-out) ──> URL dedup
-      ├──> fetch top-N pages (failures degrade to snippets)
-      ├──> score sources (term overlap; BM25 planned) ──> bounded context
-      ├──> budget guard (skip synthesis if --budget-usd exceeded)
-      └──> synthesize (LLM: markdown report, [n] citations)
+      ┌─> level i: search (chain) ──> fresh-URL dedup ──> fetch top-N
+      │            └─> BM25 score ──> reflect (LLM: notes + followups)
+      └── repeat up to depth_used levels, breadth halves per level
+            └─> synthesize (LLM: markdown report, [n] citations)
 ```
+
+Only distilled reflection notes feed later stages — raw pages never
+re-enter the loop (Tavily lesson). The budget guard runs before every
+reflection and before synthesis. A `--output-schema` file switches
+synthesis to JSON-constrained output with parse-level validation.
 
 Every run writes an artifact directory (ADR-0009):
 
 ```
 agents/voyager/20261001-142233-rust-vs-zig/
-├── prompt.md      the question + run parameters
-├── plan.json      sub-queries and chosen depth
-├── sources.json   scored sources (with fetched content)
-└── answer.md      synthesized report
+├── prompt.md        the question + run parameters
+├── plan.json        sub-queries and chosen depth
+├── reflections.json distilled notes per level (when depth > 1)
+├── sources.json     scored sources (with fetched content)
+└── answer.md        synthesized report
 ```
 
 ## Configuration precedence

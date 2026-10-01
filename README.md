@@ -42,7 +42,7 @@ cargo build --workspace --release            # ./target/release/vygr
 |---|---|
 | `vygr search <q>` | provider-chain search; `--all` concurrent fan-out with dedup, `--extract-top N` inlines content, `--time-range day\|week\|month\|year`, `--include-domains`/`--exclude-domains`, `--no-cache`/`--cache-ttl` |
 | `vygr extract <urls>` | fetch pages, reduce to plain text |
-| `vygr research <q>` | full loop: plan → search → fetch → score → synthesize; artifacts under `agents/voyager/<run>/` |
+| `vygr research <q>` | iterative loop: plan → levels (search → fetch → BM25 → reflect) → synthesize; `--depth 2..4` (LLM picks within range), `--breadth`, `--budget-usd`, `--output-schema <file>`, `--llm <spec>`, artifacts under `agents/voyager/<run>/` |
 | `vygr plan <q>` | offline preflight of a research run |
 | `vygr providers` | search providers, required env vars, readiness |
 | `vygr models [provider]` | browse the models.dev catalog and pricing |
@@ -104,11 +104,13 @@ budget_usd = 0.50
 
 ## Status
 
-Phase 1 complete (`v0.2.0`, see roadmap): rate limiting with retry/backoff
-and cross-process spacing, disk cache with query-class TTLs (`vygr cache`),
-time-range and domain filters, eight search providers (ddgs, brave, tavily,
-searxng, exa, serper, jina, kagi) and structured markdown extraction.
-`research` runs a single full pass and needs an LLM backend (`--llm …` or
-config). Not yet: iteration across depth levels, MCP server.
+Phase 2 complete (`v0.3.0`): the research command runs a real iterative
+loop — breadth halves per level, a reflection pass distills notes and
+generates follow-up queries, BM25 ranks the corpus, LLM costs accumulate
+against `--budget-usd` before every expensive call, and `--output-schema`
+constrains synthesis to JSON. Ollama runs through a native client that
+disables thinking (reasoning models like qwen3.5 work out of the box).
+Search/extract/models/plan/schema/config/init/cache all working; eight
+providers. Not yet: MCP server (`vygr serve`), release binaries.
 
 License: MIT.

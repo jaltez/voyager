@@ -87,17 +87,17 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - **Acceptance**: `vygr extract <article-url>` produces readable structured
   markdown instead of one collapsed line.
 
-## Phase 2 — the full iterative loop
+## Phase 2 — the full iterative loop (done, `v0.3.0`) — the full iterative loop
 
-- [ ] Depth levels with breadth halving per level (GPT Researcher model).
-- [ ] Reflection buffer: distilled notes feed the next iteration, not raw
+- [x] Depth levels with breadth halving per level (GPT Researcher model).
+- [x] Reflection buffer: distilled notes feed the next iteration, not raw
       tool outputs (Tavily deep-research lesson).
-- [ ] Follow-up query generation from gaps found in the current evidence.
-- [ ] BM25 context scoring replacing term-overlap placeholder.
-- [ ] Real cost accounting: accumulate LLM costs, enforce `--budget-usd`
+- [x] Follow-up query generation from gaps found in the current evidence.
+- [x] BM25 context scoring replacing term-overlap placeholder.
+- [x] Real cost accounting: accumulate LLM costs, enforce `--budget-usd`
       before every expensive call, report `cost_usd` in reports.
-- [ ] `--output-schema` (JSON Schema-constrained answers).
-- [ ] `HarnessLlm` passes the prompt via stdin instead of argv (ARG_MAX).
+- [x] `--output-schema` (JSON Schema-constrained answers).
+- [x] `HarnessLlm` passes the prompt via stdin instead of argv (ARG_MAX).
 
 ## Phase 3 — MCP server
 
