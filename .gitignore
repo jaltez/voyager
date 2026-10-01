@@ -1,0 +1,6 @@
+/target
+/agents
+.env
+.env.*
+.zcodeignore
+.zcode/

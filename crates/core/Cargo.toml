@@ -1,0 +1,16 @@
+[package]
+name = "vygr-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "voyager core: shared types, provider traits, configuration and error contract"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+dirs = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }

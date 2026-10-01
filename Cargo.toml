@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Javier Altez"]
+repository = "https://github.com/javieraltez/voyager"
+description = "Configurable deep research CLI with pluggable search providers and LLM backends"
+
+[workspace.dependencies]
+vygr-core = { path = "crates/core" }
+vygr-providers = { path = "crates/providers" }
+vygr-llm = { path = "crates/llm" }
+vygr-research = { path = "crates/research" }
+
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+scraper = "0.23"
+percent-encoding = "2"
+async-trait = "0.1"
+futures = "0.3"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "5"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[profile.release]
+lto = "thin"
+strip = true

@@ -1,0 +1,18 @@
+[package]
+name = "vygr-research"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "voyager research engine: plan-then-execute loop, scoring, run artifacts"
+
+[dependencies]
+vygr-core = { workspace = true }
+vygr-providers = { workspace = true }
+vygr-llm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+futures = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }

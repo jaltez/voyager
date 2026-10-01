@@ -1,0 +1,18 @@
+[package]
+name = "vygr-providers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "voyager search and fetch providers"
+
+[dependencies]
+vygr-core = { workspace = true }
+reqwest = { workspace = true }
+scraper = { workspace = true }
+percent-encoding = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
