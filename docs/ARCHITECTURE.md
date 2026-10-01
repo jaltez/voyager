@@ -110,5 +110,7 @@ API keys are never written by vygr; providers read their own env vars
 - Agent skill at `skills/deep-research/SKILL.md`; `vygr init --agent pi`
   installs it into the harness's skill directory.
 - `npx skills add <owner>/voyager` once public (vercel-labs/skills registry).
-- MCP server (`vygr serve`, stdio): roadmap phase 3 — token-safe, paged
-  results with full evidence kept on disk.
+- **MCP server** (`vygr serve`, stdio): hand-rolled newline-delimited
+  JSON-RPC 2.0 exposing `search`, `extract`, `research` and `get_artifact`
+  (paged, size-capped; paths restricted to the working directory). Register
+  it with `pi mcp add voyager -- vygr serve`.

@@ -65,3 +65,6 @@ When driving vygr through a full research run, follow this discipline:
 - When you (the harness) already have a capable LLM, prefer `--llm pi` /
   `--llm claude` / `--llm codex` — vygr will shell out to you and reuse your
   configured model, keys and session.
+- As an MCP server (`vygr serve` over stdio) vygr exposes `search`,
+  `extract`, `research` and `get_artifact`; page long artifacts with
+  `get_artifact` instead of reading whole files into context.

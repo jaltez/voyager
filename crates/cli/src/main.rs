@@ -1,10 +1,11 @@
 //! vygr — voyager deep research CLI.
 
 mod commands;
+mod mcp;
 mod output;
 
 use clap::{Parser, Subcommand};
-use vygr_core::{Config, VygrError};
+use vygr_core::Config;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -71,9 +72,7 @@ async fn main() {
         Commands::Config(args) => commands::config::run(args, &cfg),
         Commands::Init(args) => commands::init::run(args),
         Commands::Cache(args) => commands::cache::run(args),
-        Commands::Serve => Err(VygrError::NotImplemented(
-            "MCP server (stdio) — roadmap phase 3, see docs/decisions/0011-distribution-skill-and-mcp.md",
-        )),
+        Commands::Serve => mcp::serve(http).await,
     };
 
     if let Err(e) = result {

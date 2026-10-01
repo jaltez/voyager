@@ -19,7 +19,7 @@ pub fn run() -> Result<(), VygrError> {
             "schema": "this self-description",
             "config": "show effective configuration and paths",
             "init": "install the voyager skill into an agent harness",
-            "serve": "MCP server over stdio (not yet implemented)"
+            "serve": "run as an MCP server over stdio; tools: search, extract, research, get_artifact (paged reads of run artifacts)"
         },
         "provider_chains": "comma-separated fallback; first provider with results wins; --all queries every provider concurrently and dedups by URL",
         "llm_specs": [

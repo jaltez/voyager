@@ -99,12 +99,12 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - [x] `--output-schema` (JSON Schema-constrained answers).
 - [x] `HarnessLlm` passes the prompt via stdin instead of argv (ARG_MAX).
 
-## Phase 3 — MCP server
+## Phase 3 — MCP server (done, `v0.4.0`) — MCP server
 
-- [ ] `vygr serve`: stdio MCP server (rmcp) exposing `search`, `extract`,
+- [x] `vygr serve`: stdio MCP server (rmcp) exposing `search`, `extract`,
       `research`, `get_results` (cursor-paged, size-capped like Librarium),
       `check_run`.
-- [ ] Full evidence stays on disk; the MCP surface only pages summaries.
+- [x] Full evidence stays on disk; the MCP surface only pages summaries.
 
 ## Phase 4 — distribution
 

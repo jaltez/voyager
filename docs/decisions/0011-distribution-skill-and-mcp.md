@@ -1,7 +1,7 @@
 # ADR 0011: Distribution — binary, skill and MCP
 
 - **Date:** 2026-10-01
-- **Status:** Accepted (skill + binary shipped; MCP is roadmap phase 3)
+- **Status:** Accepted (skill + binary shipped; MCP implemented in phase 3, `v0.4.0`)
 
 ## Context
 
@@ -23,10 +23,13 @@ provide itself.
    methodology. `vygr init --agent pi|claude-code|codex|cursor|generic
    [--project]` embeds and installs it. Once public:
    `npx skills add <owner>/voyager`.
-3. **MCP server** (`vygr serve`, stdio, rmcp): expose `search`, `extract`,
-   `research`, and `get_results` cursor-paged with size caps — small
-   summaries in-context, full evidence via the run artifacts of ADR-0009.
-   Not in phase 1; the command exists and fails with a pointer to this ADR.
+3. **MCP server** (`vygr serve`, stdio): expose `search`, `extract`,
+   `research`, and `get_artifact` — small summaries in-context, full
+   evidence via the run artifacts of ADR-0009, paged with a hard size cap
+   (Librarium's token-safety pattern). Implemented hand-rolled over
+   newline-delimited JSON-RPC 2.0 in phase 3: the required surface
+   (initialize / ping / tools/list / tools/call) is tiny, so no SDK
+   dependency; `get_artifact` refuses absolute paths and `..` traversal.
 
 Harness LLM reuse is explicitly **not** routed through MCP — it is the
 shell-out backend of ADR-0004.

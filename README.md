@@ -50,7 +50,7 @@ cargo build --workspace --release            # ./target/release/vygr
 | `vygr config` | effective configuration + file paths |
 | `vygr init --agent pi` | install the agent skill (see below) |
 | `vygr cache dir\|clear` | inspect or clear the search cache |
-| `vygr serve` | MCP server over stdio — not yet implemented (roadmap) |
+| `vygr serve` | MCP server over stdio (`search`, `extract`, `research`, `get_artifact`) |
 
 Machine contract: `--format json` everywhere, diagnostics on stderr, exit
 codes `0` ok / `2` usage / `3` config-auth / `4` provider-network, `-`
@@ -87,8 +87,11 @@ budget_usd = 0.50
 - **Reuse the harness LLM**: `vygr research … --llm pi` shells out to
   `pi --print` (likewise `claude -p`, `codex exec`), so the research loop
   uses the harness's configured model and credentials. No MCP pass-through.
-- **MCP**: `vygr serve` (stdio) is planned with token-safe paged results —
-  see [ADR-0011](docs/decisions/0011-distribution-skill-and-mcp.md).
+- **MCP**: `vygr serve` runs a stdio MCP server exposing `search`,
+  `extract`, `research` and `get_artifact` (token-safe paged reads of run
+  artifacts). Register with your harness, e.g.
+  `pi mcp add voyager -- vygr serve` — see
+  [ADR-0011](docs/decisions/0011-distribution-skill-and-mcp.md).
 
 ## Documentation
 
@@ -104,13 +107,11 @@ budget_usd = 0.50
 
 ## Status
 
-Phase 2 complete (`v0.3.0`): the research command runs a real iterative
-loop — breadth halves per level, a reflection pass distills notes and
-generates follow-up queries, BM25 ranks the corpus, LLM costs accumulate
-against `--budget-usd` before every expensive call, and `--output-schema`
-constrains synthesis to JSON. Ollama runs through a native client that
-disables thinking (reasoning models like qwen3.5 work out of the box).
-Search/extract/models/plan/schema/config/init/cache all working; eight
-providers. Not yet: MCP server (`vygr serve`), release binaries.
+Phase 3 complete (`v0.4.0`): the research command runs a real iterative
+loop (breadth halving, distilled reflections, BM25, per-call budget guard,
+`--output-schema`), and `vygr serve` exposes the tool as an MCP server
+over stdio with token-safe paged artifact reads. Search/extract/cache and
+eight providers all working. Not yet: release binaries, `npx skills`
+publishing (needs a public repo), headless-browser fetch escalation.
 
 License: MIT.
