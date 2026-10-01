@@ -32,6 +32,14 @@ pub struct Args {
 
     #[arg(long, value_enum, default_value = "table")]
     pub format: SearchFormat,
+
+    /// Bypass the disk cache for this query
+    #[arg(long)]
+    pub no_cache: bool,
+
+    /// Force this TTL (seconds) for every query class
+    #[arg(long)]
+    pub cache_ttl: Option<u64>,
 }
 
 pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), VygrError> {
@@ -56,12 +64,22 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
             .unwrap_or_else(|| "ddgs".to_string())
     };
 
-    let chain = vygr_providers::build_chain(&chain_spec, http.clone(), &cfg.politeness)?;
+    let cache_opts = vygr_providers::CacheOptions {
+        disabled: args.no_cache,
+        force_ttl: args.cache_ttl.map(std::time::Duration::from_secs),
+    };
+    let handle = vygr_providers::build_chain(
+        &chain_spec,
+        http.clone(),
+        &cfg.politeness,
+        &cfg.cache,
+        &cache_opts,
+    )?;
     let q = SearchQuery::new(query.clone(), args.max_results);
     let (mut results, warnings) = if args.all {
-        vygr_providers::search_all(&chain, &q).await
+        vygr_providers::search_all(&handle.providers, &q).await
     } else {
-        vygr_providers::search_chain(&chain, &q).await
+        vygr_providers::search_chain(&handle.providers, &q).await
     };
     for w in &warnings {
         tracing::warn!("{w}");
@@ -92,9 +110,11 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         return Err(VygrError::provider(chain_spec, "no results"));
     }
 
+    let (cache_hits, cache_misses) = handle.cache.snapshot();
+    let meta = serde_json::json!({ "cache": { "hits": cache_hits, "misses": cache_misses } });
     println!(
         "{}",
-        render_search(args.format, &query, &chain_spec, &results)
+        render_search(args.format, &query, &chain_spec, &results, &meta)
     );
     Ok(())
 }

@@ -16,6 +16,7 @@ pub struct Config {
     pub llm: LlmConf,
     pub research: ResearchConf,
     pub politeness: PolitenessConf,
+    pub cache: CacheConf,
     /// Files that contributed to this configuration, in precedence order.
     #[serde(skip)]
     pub sources: Vec<PathBuf>,
@@ -96,6 +97,27 @@ impl Default for PolitenessConf {
     }
 }
 
+/// Disk cache with query-class TTLs (ADR-0010, milestone M1.2).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CacheConf {
+    pub enabled: bool,
+    pub ttl_news_secs: u64,
+    pub ttl_standard_secs: u64,
+    pub ttl_reference_secs: u64,
+}
+
+impl Default for CacheConf {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            ttl_news_secs: 300,
+            ttl_standard_secs: 3_600,
+            ttl_reference_secs: 86_400,
+        }
+    }
+}
+
 /// Raw file representation — sections are optional so we can overlay files
 /// without resetting untouched sections to defaults.
 #[derive(Debug, Default, Deserialize)]
@@ -105,6 +127,7 @@ struct FileConfig {
     llm: Option<LlmConf>,
     research: Option<ResearchConf>,
     politeness: Option<PolitenessConf>,
+    cache: Option<CacheConf>,
 }
 
 impl Config {
@@ -162,6 +185,9 @@ impl Config {
                 if let Some(politeness) = file.politeness {
                     self.politeness = politeness;
                 }
+                if let Some(cache) = file.cache {
+                    self.cache = cache;
+                }
                 self.sources.push(path.to_path_buf());
             }
             Err(e) => {
@@ -215,6 +241,12 @@ max_retries = 2
 [politeness.overrides]
 # DuckDuckGo's HTML endpoint needs ~1 req/s to avoid anti-bot 202s.
 ddgs = 1200
+
+[cache]
+enabled = true
+ttl_news_secs = 300
+ttl_standard_secs = 3600
+ttl_reference_secs = 86400
 "#
 }
 
@@ -248,5 +280,17 @@ mod tests {
         // supplied by the user drop the ddgs default — documented behavior.
         let file: FileConfig = toml::from_str("[politeness]\nmax_retries = 0\n").unwrap();
         assert_eq!(file.politeness.unwrap().max_retries, 0);
+    }
+
+    #[test]
+    fn cache_defaults_match_adr() {
+        let c = CacheConf::default();
+        assert!(c.enabled);
+        assert_eq!(
+            (c.ttl_news_secs, c.ttl_standard_secs, c.ttl_reference_secs),
+            (300, 3_600, 86_400)
+        );
+        let file: FileConfig = toml::from_str("[cache]\nenabled = false\n").unwrap();
+        assert!(!file.cache.unwrap().enabled);
     }
 }

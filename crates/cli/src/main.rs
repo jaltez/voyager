@@ -47,6 +47,8 @@ enum Commands {
     Config(commands::config::Args),
     /// Install the voyager skill into an agent harness
     Init(commands::init::Args),
+    /// Inspect or clear the on-disk search cache
+    Cache(commands::cache::Args),
     /// Run as an MCP server over stdio (not yet implemented)
     Serve,
 }
@@ -68,6 +70,7 @@ async fn main() {
         Commands::Schema => commands::schema::run(),
         Commands::Config(args) => commands::config::run(args, &cfg),
         Commands::Init(args) => commands::init::run(args),
+        Commands::Cache(args) => commands::cache::run(args),
         Commands::Serve => Err(VygrError::NotImplemented(
             "MCP server (stdio) — roadmap phase 3, see docs/decisions/0011-distribution-skill-and-mcp.md",
         )),

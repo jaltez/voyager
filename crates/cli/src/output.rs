@@ -40,12 +40,14 @@ pub fn render_search(
     query: &str,
     provider: &str,
     results: &[SearchResult],
+    meta: &serde_json::Value,
 ) -> String {
     match format {
         SearchFormat::Table => search_table(results),
         SearchFormat::Json => serde_json::to_string_pretty(&serde_json::json!({
             "query": query,
             "provider": provider,
+            "meta": meta,
             "results": results,
         }))
         .unwrap_or_default(),

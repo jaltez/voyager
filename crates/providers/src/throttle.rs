@@ -62,7 +62,7 @@ fn nonzero(wait: Option<Duration>) -> Option<Duration> {
     wait.filter(|w| !w.is_zero())
 }
 
-fn now_unix_ms() -> u64 {
+pub(crate) fn now_unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)

@@ -54,6 +54,8 @@ pub struct ResearchRequest {
     pub run_dir_base: Option<String>,
     /// Spacing/retry policy applied to every provider in the chain.
     pub politeness: vygr_core::config::PolitenessConf,
+    /// Disk cache configuration for the search chain.
+    pub cache: vygr_core::config::CacheConf,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -131,14 +133,22 @@ pub async fn run(
     );
 
     // 2) Search fan-out with cross-subquery URL dedup.
-    let chain = vygr_providers::build_chain(&req.provider_spec, http.clone(), &req.politeness)?;
+    let handle = vygr_providers::build_chain(
+        &req.provider_spec,
+        http.clone(),
+        &req.politeness,
+        &req.cache,
+        &vygr_providers::CacheOptions::default(),
+    )?;
     let mut results: Vec<SearchResult> = Vec::new();
     for sq in &subqueries {
         let q = SearchQuery::new(sq.clone(), req.max_results_per_query);
-        let (rs, w) = vygr_providers::search_chain(&chain, &q).await;
+        let (rs, w) = vygr_providers::search_chain(&handle.providers, &q).await;
         warnings.extend(w);
         results.extend(rs);
     }
+    let (cache_hits, cache_misses) = handle.cache.snapshot();
+    tracing::info!(cache_hits, cache_misses, "search cache");
     let results = vygr_providers::dedup(results);
     if results.is_empty() {
         return Err(VygrError::provider(

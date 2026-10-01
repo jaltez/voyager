@@ -66,6 +66,7 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
             .unwrap_or_else(|| "ddgs".to_string()),
         run_dir_base: cfg.research.run_dir.clone(),
         politeness: cfg.politeness.clone(),
+        cache: cfg.cache.clone(),
     };
 
     let report = vygr_research::run(request, llm, http).await?;

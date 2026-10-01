@@ -1,9 +1,9 @@
 //! Normalized data types shared across providers and the research engine.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// A single web search hit, normalized across providers.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub title: String,
     pub url: String,
