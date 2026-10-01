@@ -1,0 +1,16 @@
+{
+  "requestId": "fixture",
+  "results": [
+    {
+      "title": "Exa neural search",
+      "url": "https://exa.io/neural-search",
+      "publishedDate": "2026-01-15",
+      "text": "Exa provides neural and keyword search APIs optimized for AI agents, returning page text directly."
+    },
+    {
+      "title": "Keyword mode",
+      "url": "https://exa.io/keyword",
+      "text": "Keyword mode behaves like a traditional search engine with exact term matching."
+    }
+  ]
+}

@@ -3,7 +3,8 @@
 Configurable deep-research CLI, written in Rust. Binary: **`vygr`**.
 
 Search the web through provider chains (keyless DuckDuckGo out of the box,
-Brave/Tavily behind env keys), fetch and reduce pages to text, and run a
+plus Brave, Tavily, Exa, Serper, Jina and Kagi behind env keys, and
+self-hosted SearXNG), fetch and reduce pages to text, and run a
 full plan-search-synthesize research loop over any LLM backend — a
 models.dev provider, local Ollama, a custom OpenAI-compatible endpoint, or
 the LLM already configured in your agent harness (`--llm pi`, `--llm
@@ -39,7 +40,7 @@ cargo build --workspace --release            # ./target/release/vygr
 
 | command | purpose |
 |---|---|
-| `vygr search <q>` | provider-chain search; `--all` concurrent fan-out with dedup, `--extract-top N` inlines content |
+| `vygr search <q>` | provider-chain search; `--all` concurrent fan-out with dedup, `--extract-top N` inlines content, `--time-range day\|week\|month\|year`, `--include-domains`/`--exclude-domains`, `--no-cache`/`--cache-ttl` |
 | `vygr extract <urls>` | fetch pages, reduce to plain text |
 | `vygr research <q>` | full loop: plan → search → fetch → score → synthesize; artifacts under `agents/voyager/<run>/` |
 | `vygr plan <q>` | offline preflight of a research run |
@@ -48,6 +49,7 @@ cargo build --workspace --release            # ./target/release/vygr
 | `vygr schema` | machine-readable self-description (for agents) |
 | `vygr config` | effective configuration + file paths |
 | `vygr init --agent pi` | install the agent skill (see below) |
+| `vygr cache dir\|clear` | inspect or clear the search cache |
 | `vygr serve` | MCP server over stdio — not yet implemented (roadmap) |
 
 Machine contract: `--format json` everywhere, diagnostics on stderr, exit

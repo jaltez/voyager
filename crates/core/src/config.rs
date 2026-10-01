@@ -22,11 +22,13 @@ pub struct Config {
     pub sources: Vec<PathBuf>,
 }
 
-/// Per-provider toggles (currently only enable/disable).
+/// Per-provider toggles and endpoint overrides (M1.4).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ProviderConf {
     pub enabled: Option<bool>,
+    /// Endpoint override; currently only searxng needs it (instance URL).
+    pub base_url: Option<String>,
 }
 
 /// LLM backend selection (ADR-0004).
@@ -122,6 +124,25 @@ impl Default for CacheConf {
             ttl_news_secs: 300,
             ttl_standard_secs: 3_600,
             ttl_reference_secs: 86_400,
+        }
+    }
+}
+
+/// Everything the provider stack needs besides the query itself — a
+/// convenience view over the config sections, passed to `build_chain`.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct SearchStackConf {
+    pub politeness: PolitenessConf,
+    pub cache: CacheConf,
+    pub providers: BTreeMap<String, ProviderConf>,
+}
+
+impl SearchStackConf {
+    pub fn from_config(cfg: &Config) -> Self {
+        Self {
+            politeness: cfg.politeness.clone(),
+            cache: cfg.cache.clone(),
+            providers: cfg.providers.clone(),
         }
     }
 }

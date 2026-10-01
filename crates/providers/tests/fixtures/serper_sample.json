@@ -1,0 +1,20 @@
+{
+  "searchParameters": {
+    "q": "rust language",
+    "num": 2
+  },
+  "organic": [
+    {
+      "title": "Serper results API",
+      "link": "https://serper.dev/results",
+      "snippet": "Google SERP results through a simple JSON API.",
+      "position": 1
+    },
+    {
+      "title": "Serper playground",
+      "link": "https://serper.dev/playground",
+      "snippet": "Try queries in the interactive playground.",
+      "position": 2
+    }
+  ]
+}

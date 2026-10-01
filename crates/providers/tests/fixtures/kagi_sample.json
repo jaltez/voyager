@@ -1,0 +1,17 @@
+{
+  "meta": { "id": "fixture" },
+  "data": [
+    {
+      "t": "Kagi plans and pricing",
+      "url": "https://kagi.com/pricing",
+      "d": "Search plans for individuals and teams, including API access.",
+      "rank": 1
+    },
+    {
+      "t": "Kagi Small Web",
+      "url": "https://kagi.com/smallweb",
+      "d": "Discover writing from the independent web and the Kagi orb.",
+      "rank": 2
+    }
+  ]
+}

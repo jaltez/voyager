@@ -4,7 +4,12 @@
 mod brave;
 mod cache;
 mod ddgs;
+mod exa;
 mod fetch;
+mod jina;
+mod kagi;
+mod searxng;
+mod serper;
 mod tavily;
 mod throttle;
 
@@ -16,13 +21,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::future::join_all;
-use vygr_core::config::{CacheConf, PolitenessConf};
+use vygr_core::config::SearchStackConf;
 use vygr_core::provider::{SearchProvider, SearchQuery};
 use vygr_core::types::SearchResult;
 use vygr_core::VygrError;
 
 /// Provider ids compiled into this binary.
-pub const BUILTIN: &[&str] = &["ddgs", "brave", "tavily"];
+pub const BUILTIN: &[&str] = &[
+    "ddgs", "brave", "tavily", "searxng", "exa", "serper", "jina", "kagi",
+];
 
 /// Map an alias to its canonical provider id.
 pub fn canonical(id: &str) -> Option<&'static str> {
@@ -30,15 +37,25 @@ pub fn canonical(id: &str) -> Option<&'static str> {
         "ddgs" | "ddg" | "duckduckgo" => Some("ddgs"),
         "brave" => Some("brave"),
         "tavily" => Some("tavily"),
+        "searxng" | "searx" => Some("searxng"),
+        "exa" => Some("exa"),
+        "serper" | "serperdev" => Some("serper"),
+        "jina" | "s-jina" => Some("jina"),
+        "kagi" => Some("kagi"),
         _ => None,
     }
 }
 
-/// Environment variable a provider needs, if any.
+/// Environment variable a provider needs, if any. `searxng` needs no key
+/// but requires an instance URL instead (see `vygr providers`).
 pub fn env_requirement(id: &str) -> Option<&'static str> {
     match canonical(id)? {
         "tavily" => Some("TAVILY_API_KEY"),
         "brave" => Some("BRAVE_API_KEY"),
+        "exa" => Some("EXA_API_KEY"),
+        "serper" => Some("SERPER_API_KEY"),
+        "jina" => Some("JINA_API_KEY"),
+        "kagi" => Some("KAGI_API_KEY"),
         _ => None,
     }
 }
@@ -56,8 +73,7 @@ pub struct ChainHandle {
 pub fn build_chain(
     spec: &str,
     http: reqwest::Client,
-    politeness: &PolitenessConf,
-    cache: &CacheConf,
+    stack: &SearchStackConf,
     cache_opts: &CacheOptions,
 ) -> Result<ChainHandle, VygrError> {
     let ids: Vec<&str> = spec
@@ -78,6 +94,18 @@ pub fn build_chain(
                 Some("ddgs") => Box::new(ddgs::DdgSearch::new(http.clone())),
                 Some("brave") => Box::new(brave::BraveSearch::new(http.clone())),
                 Some("tavily") => Box::new(tavily::TavilySearch::new(http.clone())),
+                Some("exa") => Box::new(exa::ExaSearch::new(http.clone())),
+                Some("serper") => Box::new(serper::SerperSearch::new(http.clone())),
+                Some("jina") => Box::new(jina::JinaSearch::new(http.clone())),
+                Some("kagi") => Box::new(kagi::KagiSearch::new(http.clone())),
+                Some("searxng") => {
+                    let configured = stack
+                        .providers
+                        .get("searxng")
+                        .and_then(|p| p.base_url.as_deref());
+                    let base = searxng::SearxngSearch::resolve_base(configured)?;
+                    Box::new(searxng::SearxngSearch::new(http.clone(), base))
+                }
                 _ => {
                     return Err(VygrError::Config(format!(
                         "unknown provider '{}' (built-ins: {})",
@@ -86,13 +114,13 @@ pub fn build_chain(
                     )))
                 }
             };
-            let policy = ThrottlePolicy::from_config(inner.id(), politeness);
+            let policy = ThrottlePolicy::from_config(inner.id(), &stack.politeness);
             let throttled =
                 ThrottledProvider::new(inner, policy, vygr_core::config::Config::cache_dir());
             let cached = CachedSearchProvider::new(
                 Box::new(throttled),
                 cache_root.clone(),
-                cache,
+                &stack.cache,
                 cache_opts.clone(),
                 Arc::clone(&stats),
             );

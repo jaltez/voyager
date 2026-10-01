@@ -65,8 +65,7 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
             .or_else(|| cfg.default_provider.clone())
             .unwrap_or_else(|| "ddgs".to_string()),
         run_dir_base: cfg.research.run_dir.clone(),
-        politeness: cfg.politeness.clone(),
-        cache: cfg.cache.clone(),
+        stack: vygr_core::config::SearchStackConf::from_config(cfg),
         time_range: match cfg.research.time_range.as_deref() {
             Some(s) => Some(vygr_core::provider::TimeRange::parse(s)?),
             None => None,

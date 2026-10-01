@@ -80,13 +80,8 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         disabled: args.no_cache,
         force_ttl: args.cache_ttl.map(std::time::Duration::from_secs),
     };
-    let handle = vygr_providers::build_chain(
-        &chain_spec,
-        http.clone(),
-        &cfg.politeness,
-        &cfg.cache,
-        &cache_opts,
-    )?;
+    let stack = vygr_core::config::SearchStackConf::from_config(cfg);
+    let handle = vygr_providers::build_chain(&chain_spec, http.clone(), &stack, &cache_opts)?;
     let q = SearchQuery::new(query.clone(), args.max_results).with_filters(
         match args.time_range.as_deref() {
             Some(s) => Some(vygr_core::provider::TimeRange::parse(s)?),

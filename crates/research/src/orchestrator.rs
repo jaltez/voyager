@@ -52,10 +52,8 @@ pub struct ResearchRequest {
     pub context_max_chars: usize,
     pub provider_spec: String,
     pub run_dir_base: Option<String>,
-    /// Spacing/retry policy applied to every provider in the chain.
-    pub politeness: vygr_core::config::PolitenessConf,
-    /// Disk cache configuration for the search chain.
-    pub cache: vygr_core::config::CacheConf,
+    /// Politeness, cache and per-provider settings for the search stack.
+    pub stack: vygr_core::config::SearchStackConf,
     /// Filters applied to every research search (M1.3).
     pub time_range: Option<vygr_core::provider::TimeRange>,
     pub include_domains: Vec<String>,
@@ -140,8 +138,7 @@ pub async fn run(
     let handle = vygr_providers::build_chain(
         &req.provider_spec,
         http.clone(),
-        &req.politeness,
-        &req.cache,
+        &req.stack,
         &vygr_providers::CacheOptions::default(),
     )?;
     let mut results: Vec<SearchResult> = Vec::new();

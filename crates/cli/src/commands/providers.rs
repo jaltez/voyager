@@ -26,11 +26,25 @@ pub fn run(args: Args, cfg: &Config) -> Result<(), VygrError> {
                 Some(name) => std::env::var(name)
                     .map(|v| !v.trim().is_empty())
                     .unwrap_or(false),
+                // searxng is keyless but needs an instance URL.
+                None if *id == "searxng" => {
+                    let configured = cfg
+                        .providers
+                        .get("searxng")
+                        .and_then(|p| p.base_url.clone())
+                        .or_else(|| {
+                            std::env::var("SEARXNG_BASE_URL")
+                                .ok()
+                                .filter(|v| !v.trim().is_empty())
+                        });
+                    configured.is_some()
+                }
                 None => true,
             };
             serde_json::json!({
                 "id": id,
                 "requires_env": env,
+                "requires": if *id == "searxng" { Some("base_url") } else { None },
                 "ready": ready,
                 "in_default_chain": default_chain.split(',').any(|p| vygr_providers::canonical(p) == Some(*id)),
             })
