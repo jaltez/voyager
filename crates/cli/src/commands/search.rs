@@ -56,7 +56,7 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
             .unwrap_or_else(|| "ddgs".to_string())
     };
 
-    let chain = vygr_providers::build_chain(&chain_spec, http.clone())?;
+    let chain = vygr_providers::build_chain(&chain_spec, http.clone(), &cfg.politeness)?;
     let q = SearchQuery::new(query.clone(), args.max_results);
     let (mut results, warnings) = if args.all {
         vygr_providers::search_all(&chain, &q).await
@@ -89,10 +89,7 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         for w in &warnings {
             eprintln!("vygr: {w}");
         }
-        return Err(VygrError::Provider {
-            provider: chain_spec,
-            message: "no results".to_string(),
-        });
+        return Err(VygrError::provider(chain_spec, "no results"));
     }
 
     println!(

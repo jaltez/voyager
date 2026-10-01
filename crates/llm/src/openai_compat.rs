@@ -133,10 +133,11 @@ impl LlmClient for OpenAiCompatible {
                 .chars()
                 .take(300)
                 .collect::<String>();
-            return Err(VygrError::Provider {
-                provider: format!("llm:{}", self.model),
-                message: format!("HTTP {status} {detail}"),
-            });
+            return Err(VygrError::provider_status(
+                format!("llm:{}", self.model),
+                format!("HTTP {status} {detail}"),
+                status.as_u16(),
+            ));
         }
         let parsed: RespBody = resp
             .json()

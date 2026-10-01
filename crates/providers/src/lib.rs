@@ -5,8 +5,10 @@ mod brave;
 mod ddgs;
 mod fetch;
 mod tavily;
+mod throttle;
 
 pub use fetch::HttpFetch;
+pub use throttle::{ThrottlePolicy, ThrottledProvider};
 
 use std::collections::HashMap;
 
@@ -37,23 +39,38 @@ pub fn env_requirement(id: &str) -> Option<&'static str> {
     }
 }
 
-pub fn build(id: &str, http: reqwest::Client) -> Result<Box<dyn SearchProvider>, VygrError> {
-    match canonical(id) {
-        Some("ddgs") => Ok(Box::new(ddgs::DdgSearch::new(http))),
-        Some("brave") => Ok(Box::new(brave::BraveSearch::new(http))),
-        Some("tavily") => Ok(Box::new(tavily::TavilySearch::new(http))),
-        _ => Err(VygrError::Config(format!(
-            "unknown provider '{}' (built-ins: {})",
-            id,
-            BUILTIN.join(", ")
-        ))),
-    }
+/// Build a provider wrapped in the politeness decorator (spacing +
+/// retry, ADR-0010).
+pub fn build(
+    id: &str,
+    http: reqwest::Client,
+    politeness: &vygr_core::config::PolitenessConf,
+) -> Result<Box<dyn SearchProvider>, VygrError> {
+    let inner: Box<dyn SearchProvider> = match canonical(id) {
+        Some("ddgs") => Box::new(ddgs::DdgSearch::new(http)),
+        Some("brave") => Box::new(brave::BraveSearch::new(http)),
+        Some("tavily") => Box::new(tavily::TavilySearch::new(http)),
+        _ => {
+            return Err(VygrError::Config(format!(
+                "unknown provider '{}' (built-ins: {})",
+                id,
+                BUILTIN.join(", ")
+            )))
+        }
+    };
+    let policy = ThrottlePolicy::from_config(inner.id(), politeness);
+    Ok(Box::new(ThrottledProvider::new(
+        inner,
+        policy,
+        vygr_core::config::Config::cache_dir(),
+    )))
 }
 
 /// Build a fallback chain from a comma-separated spec such as `"ddgs,brave"`.
 pub fn build_chain(
     spec: &str,
     http: reqwest::Client,
+    politeness: &vygr_core::config::PolitenessConf,
 ) -> Result<Vec<Box<dyn SearchProvider>>, VygrError> {
     let ids: Vec<&str> = spec
         .split(',')
@@ -64,7 +81,7 @@ pub fn build_chain(
         return Err(VygrError::Config("empty provider chain".to_string()));
     }
     ids.iter()
-        .map(|id| build(id, http.clone()))
+        .map(|id| build(id, http.clone(), politeness))
         .collect::<Result<Vec<_>, _>>()
 }
 

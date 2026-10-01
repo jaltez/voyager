@@ -142,10 +142,11 @@ pub async fn load(http: &reqwest::Client) -> Result<Catalog, VygrError> {
         .await
         .map_err(|e| VygrError::Network(format!("fetching models.dev: {e}")))?;
     if !resp.status().is_success() {
-        return Err(VygrError::Provider {
-            provider: "models.dev".into(),
-            message: format!("HTTP {}", resp.status()),
-        });
+        return Err(VygrError::provider_status(
+            "models.dev",
+            format!("HTTP {}", resp.status()),
+            resp.status().as_u16(),
+        ));
     }
     let json: Value = resp
         .json()

@@ -1925,6 +1925,7 @@ dependencies = [
  "scraper",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
  "vygr-core",
 ]

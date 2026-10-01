@@ -41,10 +41,11 @@ impl FetchProvider for HttpFetch {
             .unwrap_or("application/octet-stream")
             .to_string();
         if !status.is_success() {
-            return Err(VygrError::Provider {
-                provider: "http".into(),
-                message: format!("HTTP {status} fetching {url}"),
-            });
+            return Err(VygrError::provider_status(
+                "http",
+                format!("HTTP {status} fetching {url}"),
+                status.as_u16(),
+            ));
         }
         let bytes = resp
             .bytes()

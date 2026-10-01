@@ -39,10 +39,7 @@ pub async fn run(args: Args, http: reqwest::Client) -> Result<(), VygrError> {
         }
     }
     if ok.is_empty() {
-        return Err(VygrError::Provider {
-            provider: "http".to_string(),
-            message: "every fetch failed".to_string(),
-        });
+        return Err(VygrError::provider("http", "every fetch failed"));
     }
     println!("{}", render_pages(args.format, &ok));
     Ok(())

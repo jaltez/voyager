@@ -52,6 +52,8 @@ pub struct ResearchRequest {
     pub context_max_chars: usize,
     pub provider_spec: String,
     pub run_dir_base: Option<String>,
+    /// Spacing/retry policy applied to every provider in the chain.
+    pub politeness: vygr_core::config::PolitenessConf,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -129,7 +131,7 @@ pub async fn run(
     );
 
     // 2) Search fan-out with cross-subquery URL dedup.
-    let chain = vygr_providers::build_chain(&req.provider_spec, http.clone())?;
+    let chain = vygr_providers::build_chain(&req.provider_spec, http.clone(), &req.politeness)?;
     let mut results: Vec<SearchResult> = Vec::new();
     for sq in &subqueries {
         let q = SearchQuery::new(sq.clone(), req.max_results_per_query);
@@ -139,10 +141,10 @@ pub async fn run(
     }
     let results = vygr_providers::dedup(results);
     if results.is_empty() {
-        return Err(VygrError::Provider {
-            provider: req.provider_spec.clone(),
-            message: "all searches returned nothing".to_string(),
-        });
+        return Err(VygrError::provider(
+            req.provider_spec.clone(),
+            "all searches returned nothing",
+        ));
     }
     tracing::info!(sources = results.len(), "search done");
 

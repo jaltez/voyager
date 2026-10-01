@@ -55,10 +55,10 @@ impl LlmClient for HarnessLlm {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let excerpt: String = stderr.chars().take(300).collect();
-            return Err(VygrError::Provider {
-                provider: format!("harness:{}", self.program),
-                message: format!("exited with {}: {excerpt}", output.status),
-            });
+            return Err(VygrError::provider(
+                format!("harness:{}", self.program),
+                format!("exited with {}: {excerpt}", output.status),
+            ));
         }
         let content = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(CompletionResponse {

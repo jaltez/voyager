@@ -15,6 +15,7 @@ pub struct Config {
     pub providers: BTreeMap<String, ProviderConf>,
     pub llm: LlmConf,
     pub research: ResearchConf,
+    pub politeness: PolitenessConf,
     /// Files that contributed to this configuration, in precedence order.
     #[serde(skip)]
     pub sources: Vec<PathBuf>,
@@ -71,6 +72,30 @@ impl Default for ResearchConf {
     }
 }
 
+/// Request spacing and retry policy (ADR-0010, milestone M1.1).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PolitenessConf {
+    /// Minimum interval between requests to the same provider.
+    pub min_interval_ms_default: u64,
+    /// Retries with exponential backoff for retriable failures (429/5xx).
+    pub max_retries: u32,
+    /// Per-provider interval overrides in milliseconds.
+    pub overrides: BTreeMap<String, u64>,
+}
+
+impl Default for PolitenessConf {
+    fn default() -> Self {
+        Self {
+            min_interval_ms_default: 250,
+            max_retries: 2,
+            // DuckDuckGo's HTML endpoint serves anti-bot 202 pages when
+            // queried faster than roughly one request per second.
+            overrides: BTreeMap::from([("ddgs".to_string(), 1_200)]),
+        }
+    }
+}
+
 /// Raw file representation — sections are optional so we can overlay files
 /// without resetting untouched sections to defaults.
 #[derive(Debug, Default, Deserialize)]
@@ -79,6 +104,7 @@ struct FileConfig {
     providers: Option<BTreeMap<String, ProviderConf>>,
     llm: Option<LlmConf>,
     research: Option<ResearchConf>,
+    politeness: Option<PolitenessConf>,
 }
 
 impl Config {
@@ -133,6 +159,9 @@ impl Config {
                 if let Some(research) = file.research {
                     self.research = research;
                 }
+                if let Some(politeness) = file.politeness {
+                    self.politeness = politeness;
+                }
                 self.sources.push(path.to_path_buf());
             }
             Err(e) => {
@@ -178,6 +207,14 @@ budget_usd = 0.50
 max_results_per_query = 5
 fetch_top = 4
 # run_dir = "./agents/voyager"
+
+[politeness]
+min_interval_ms_default = 250
+max_retries = 2
+
+[politeness.overrides]
+# DuckDuckGo's HTML endpoint needs ~1 req/s to avoid anti-bot 202s.
+ddgs = 1200
 "#
 }
 
@@ -199,5 +236,17 @@ mod tests {
         let r = ResearchConf::default();
         assert_eq!((r.depth_min, r.depth_max, r.breadth), (2, 4, 3));
         assert_eq!(r.max_results_per_query, 5);
+    }
+
+    #[test]
+    fn politeness_defaults_space_ddgs() {
+        let p = PolitenessConf::default();
+        assert_eq!(p.min_interval_ms_default, 250);
+        assert_eq!(p.max_retries, 2);
+        assert_eq!(p.overrides.get("ddgs"), Some(&1_200));
+        // A file section replaces the section wholesale, so overrides
+        // supplied by the user drop the ddgs default — documented behavior.
+        let file: FileConfig = toml::from_str("[politeness]\nmax_retries = 0\n").unwrap();
+        assert_eq!(file.politeness.unwrap().max_retries, 0);
     }
 }

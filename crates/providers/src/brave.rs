@@ -54,10 +54,11 @@ impl SearchProvider for BraveSearch {
             )));
         }
         if !status.is_success() {
-            return Err(VygrError::Provider {
-                provider: "brave".into(),
-                message: format!("HTTP {status}"),
-            });
+            return Err(VygrError::provider_status(
+                "brave",
+                format!("HTTP {status}"),
+                status.as_u16(),
+            ));
         }
         let body: BraveResponse = resp
             .json()

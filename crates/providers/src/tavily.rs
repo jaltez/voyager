@@ -54,10 +54,11 @@ impl SearchProvider for TavilySearch {
             )));
         }
         if !status.is_success() {
-            return Err(VygrError::Provider {
-                provider: "tavily".into(),
-                message: format!("HTTP {status}"),
-            });
+            return Err(VygrError::provider_status(
+                "tavily",
+                format!("HTTP {status}"),
+                status.as_u16(),
+            ));
         }
         let body: TavilyResponse = resp
             .json()

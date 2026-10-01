@@ -47,20 +47,21 @@ impl SearchProvider for DdgSearch {
         if status.as_u16() == 202 {
             // DDG answers 202 with an anti-bot challenge page when the IP
             // queries too fast; there is nothing to parse.
-            return Err(VygrError::Provider {
-                provider: "ddgs".into(),
-                message: "anti-bot challenge (HTTP 202); wait a bit, or switch provider \
-(--provider brave / tavily, or configure a chain \"ddgs,brave\")"
-                    .to_string(),
-            });
+            return Err(VygrError::provider_status(
+                "ddgs",
+                "anti-bot challenge (HTTP 202); wait a bit, or switch provider \
+(--provider brave / tavily, or configure a chain \"ddgs,brave\")",
+                202,
+            ));
         }
         if !status.is_success() {
-            return Err(VygrError::Provider {
-                provider: "ddgs".into(),
-                message: format!(
+            return Err(VygrError::provider_status(
+                "ddgs",
+                format!(
                     "HTTP {status} (DuckDuckGo may be rate-limiting; retry or switch provider)"
                 ),
-            });
+                status.as_u16(),
+            ));
         }
         let mut results = parse_ddg_html(&body)?;
         results.truncate(q.max_results);
