@@ -187,7 +187,8 @@ pub async fn run(
         &req.stack,
         &vygr_providers::CacheOptions::default(),
     )?;
-    let fetcher = vygr_providers::HttpFetch::new(http);
+    let fetcher =
+        vygr_providers::EscalatingFetch::new(vygr_providers::HttpFetch::new(http.clone()), http);
 
     let mut visited: HashSet<String> = HashSet::new();
     let mut sources: Vec<Source> = Vec::new();

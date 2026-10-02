@@ -25,7 +25,8 @@ pub async fn run(args: Args, http: reqwest::Client) -> Result<(), VygrError> {
     if args.urls.is_empty() {
         return Err(VygrError::Config("no URLs given".to_string()));
     }
-    let fetcher = vygr_providers::HttpFetch::new(http);
+    let fetcher =
+        vygr_providers::EscalatingFetch::new(vygr_providers::HttpFetch::new(http.clone()), http);
     let pages = join_all(args.urls.iter().map(|u| fetcher.fetch(u, args.max_chars))).await;
 
     let mut ok: Vec<FetchPage> = Vec::new();

@@ -55,6 +55,18 @@ impl FetchProvider for HttpFetch {
 
         let (title, text) = if content_type.contains("html") {
             extract_html(&raw)
+        } else if content_type.contains("pdf") {
+            // PDF sources (papers!) carry some of the highest-value
+            // evidence; extract what the pure-Rust reader can. The
+            // library prints ligature warnings on stdout, which would
+            // break the machine contract, so it runs silenced.
+            match quiet_stdout(|| pdf_extract::extract_text_from_mem(&bytes)) {
+                Ok(text) => (None, text),
+                Err(e) => {
+                    tracing::warn!("pdf extraction failed for {url}: {e}");
+                    (None, String::new())
+                }
+            }
         } else {
             (None, raw.trim().to_string())
         };
@@ -161,6 +173,38 @@ fn render_block(tag: &str, text: &str) -> String {
         "pre" => format!("```\n{text}\n```"),
         _ => text.to_string(),
     }
+}
+
+/// Run `f` with the process stdout redirected to /dev/null (unix), so
+/// noisy library prints cannot pollute the data channel. Best effort: on
+/// non-unix platforms `f` simply runs as-is.
+#[cfg(unix)]
+fn quiet_stdout<T>(f: impl FnOnce() -> T) -> T {
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+    // SAFETY: dup/dup2/open are plain fd operations on fd 1; the saved
+    // descriptor is restored before returning.
+    unsafe {
+        let saved = libc::dup(libc::STDOUT_FILENO);
+        if saved < 0 {
+            return f();
+        }
+        let null = libc::open(c"/dev/null".as_ptr() as *const _, libc::O_WRONLY);
+        if null >= 0 {
+            libc::dup2(null, libc::STDOUT_FILENO);
+            libc::close(null);
+        }
+        let out = f();
+        let _ = std::io::stdout().flush();
+        libc::dup2(saved, libc::STDOUT_FILENO);
+        libc::close(saved);
+        out
+    }
+}
+
+#[cfg(not(unix))]
+fn quiet_stdout<T>(f: impl FnOnce() -> T) -> T {
+    f()
 }
 
 fn collapse<'a>(text: impl Iterator<Item = &'a str>) -> String {

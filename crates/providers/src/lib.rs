@@ -4,6 +4,7 @@
 mod brave;
 mod cache;
 mod ddgs;
+mod escalate;
 mod exa;
 mod fetch;
 mod jina;
@@ -14,6 +15,7 @@ mod tavily;
 mod throttle;
 
 pub use cache::{CacheOptions, CacheStats, CachedSearchProvider, QueryClass};
+pub use escalate::EscalatingFetch;
 pub use fetch::HttpFetch;
 pub use throttle::{ThrottlePolicy, ThrottledProvider};
 

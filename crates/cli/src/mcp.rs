@@ -213,7 +213,10 @@ async fn call_tool(
                 .and_then(Value::as_u64)
                 .unwrap_or(8_000)
                 .clamp(200, 100_000) as usize;
-            let fetcher = vygr_providers::HttpFetch::new(server.http.clone());
+            let fetcher = vygr_providers::EscalatingFetch::new(
+                vygr_providers::HttpFetch::new(server.http.clone()),
+                server.http.clone(),
+            );
             let mut pages: Vec<Value> = Vec::new();
             for url in urls {
                 match fetcher.fetch(&url, max_chars).await {
