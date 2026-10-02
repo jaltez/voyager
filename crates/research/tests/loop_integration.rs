@@ -177,6 +177,7 @@ async fn full_loop_runs_two_levels_with_reflection_and_cost() {
         request(port, &tmp),
         Box::new(OwnedLlm(Arc::clone(&scripted))),
         reqwest::Client::new(),
+        None,
     )
     .await
     .unwrap();
@@ -227,6 +228,7 @@ async fn budget_exhaustion_skips_synthesis_but_keeps_sources() {
         req,
         Box::new(OwnedLlm(Arc::clone(&scripted))),
         reqwest::Client::new(),
+        None,
     )
     .await
     .unwrap();

@@ -8,6 +8,7 @@
 //! dumping whole files into the agent's context.
 
 use std::path::{Component, PathBuf};
+use std::sync::Arc;
 
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -17,6 +18,10 @@ use vygr_core::{Config, VygrError};
 /// Hard cap for `get_artifact` pages.
 const PAGE_MAX: usize = 32_000;
 const PAGE_DEFAULT: usize = 8_000;
+
+/// Sink for server-initiated notifications (written to stdout as they
+/// happen, interleaved with request replies).
+pub type Notify = Arc<dyn Fn(Value) + Send + Sync>;
 
 pub struct McpServer {
     pub config: Config,
@@ -30,7 +35,19 @@ pub async fn serve(http: reqwest::Client) -> Result<(), VygrError> {
     };
     let stdin = tokio::io::stdin();
     let mut reader = BufReader::new(stdin);
-    let mut stdout = tokio::io::stdout();
+    let stdout = Arc::new(tokio::sync::Mutex::new(tokio::io::stdout()));
+    let notify: Notify = {
+        let stdout = Arc::clone(&stdout);
+        Arc::new(move |v: Value| {
+            let stdout = stdout.clone();
+            // Tiny line writes; a short blocking task is fine here.
+            tokio::spawn(async move {
+                let mut out = stdout.lock().await;
+                let _ = out.write_all(format!("{v}\n").as_bytes()).await;
+                let _ = out.flush().await;
+            });
+        })
+    };
     let mut line = String::new();
     loop {
         line.clear();
@@ -39,7 +56,7 @@ pub async fn serve(http: reqwest::Client) -> Result<(), VygrError> {
             return Ok(()); // client closed the pipe
         }
         let reply = match serde_json::from_str::<Value>(line.trim()) {
-            Ok(msg) => handle_message(&server, &msg).await,
+            Ok(msg) => handle_message(&server, &msg, &notify).await,
             Err(e) => Some(json!({
                 "jsonrpc": "2.0",
                 "id": Value::Null,
@@ -47,17 +64,17 @@ pub async fn serve(http: reqwest::Client) -> Result<(), VygrError> {
             })),
         };
         if let Some(reply) = reply {
-            stdout
-                .write_all(format!("{reply}\n").as_bytes())
+            let mut out = stdout.lock().await;
+            out.write_all(format!("{reply}\n").as_bytes())
                 .await
                 .map_err(VygrError::Io)?;
-            stdout.flush().await.map_err(VygrError::Io)?;
+            out.flush().await.map_err(VygrError::Io)?;
         }
     }
 }
 
 /// Handle one JSON-RPC message. Returns `None` for notifications (no id).
-pub async fn handle_message(server: &McpServer, msg: &Value) -> Option<Value> {
+pub async fn handle_message(server: &McpServer, msg: &Value, notify: &Notify) -> Option<Value> {
     let id = msg.get("id")?.clone();
     let method = msg.get("method").and_then(Value::as_str).unwrap_or("");
     let result = match method {
@@ -71,7 +88,7 @@ pub async fn handle_message(server: &McpServer, msg: &Value) -> Option<Value> {
         })),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": tool_definitions() })),
-        "tools/call" => call_tool(server, msg).await,
+        "tools/call" => call_tool(server, msg, notify).await,
         _ => Err((-32601_i64, format!("method not found: {method}"))),
     };
     Some(match result {
@@ -131,7 +148,11 @@ fn tool_definitions() -> Vec<Value> {
     ]
 }
 
-async fn call_tool(server: &McpServer, msg: &Value) -> Result<Value, (i64, String)> {
+async fn call_tool(
+    server: &McpServer,
+    msg: &Value,
+    notify: &Notify,
+) -> Result<Value, (i64, String)> {
     let name = msg
         .pointer("/params/name")
         .and_then(Value::as_str)
@@ -250,7 +271,18 @@ async fn call_tool(server: &McpServer, msg: &Value) -> Result<Value, (i64, Strin
                 exclude_domains: vec![],
                 output_schema: None,
             };
-            match vygr_research::run(request, llm, server.http.clone()).await {
+            // Progress as notifications/progress: pi's MCP client kills
+            // requests after 60s unless progress notifications arrive.
+            let sink: vygr_research::ProgressSink = match progress_token(msg) {
+                Some(token) => {
+                    let notify = Arc::clone(notify);
+                    Arc::new(move |message: &str| {
+                        notify(progress_notification(&token, message));
+                    })
+                }
+                None => Arc::new(|_| {}),
+            };
+            match vygr_research::run(request, llm, server.http.clone(), Some(sink)).await {
                 Ok(report) => {
                     let mut text = String::new();
                     if let Some(answer) = &report.answer {
@@ -321,6 +353,28 @@ async fn call_tool(server: &McpServer, msg: &Value) -> Result<Value, (i64, Strin
     Ok(json!({ "content": [{ "type": "text", "text": text }], "isError": false }))
 }
 
+/// The `progressToken` a client attached to a `tools/call` request
+/// (number or string), used to address progress notifications back.
+fn progress_token(msg: &Value) -> Option<Value> {
+    let token = msg.pointer("/params/_meta/progressToken")?;
+    if token.is_null() {
+        return None;
+    }
+    Some(token.clone())
+}
+
+/// A `notifications/progress` JSON-RPC notification.
+fn progress_notification(token: &Value, message: &str) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/progress",
+        "params": {
+            "progressToken": token,
+            "message": message,
+        }
+    })
+}
+
 fn tool_error(message: String) -> Value {
     json!({ "content": [{ "type": "text", "text": message }], "isError": true })
 }
@@ -345,6 +399,37 @@ fn safe_path(path: &str) -> Result<PathBuf, String> {
 mod tests {
     use super::*;
 
+    fn noop_notify() -> Notify {
+        Arc::new(|_| {})
+    }
+
+    #[test]
+    fn progress_token_extraction() {
+        let with_number = json!({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": { "name": "research", "_meta": { "progressToken": 42 } }
+        });
+        assert_eq!(progress_token(&with_number), Some(json!(42)));
+        let with_string = json!({
+            "params": { "_meta": { "progressToken": "run-7" } }
+        });
+        assert_eq!(progress_token(&with_string), Some(json!("run-7")));
+        let without = json!({"params": {"name": "search"}});
+        assert_eq!(progress_token(&without), None);
+        let null_token = json!({"params": {"_meta": {"progressToken": null}}});
+        assert_eq!(progress_token(&null_token), None);
+    }
+
+    #[test]
+    fn progress_notification_shape() {
+        let n = progress_notification(&json!(42), "level 1/2: 5 new sources");
+        assert_eq!(n["jsonrpc"], "2.0");
+        assert_eq!(n["method"], "notifications/progress");
+        assert_eq!(n["params"]["progressToken"], 42);
+        assert_eq!(n["params"]["message"], "level 1/2: 5 new sources");
+        assert!(n.get("id").is_none());
+    }
+
     fn server() -> McpServer {
         McpServer {
             config: Config::default(),
@@ -358,15 +443,20 @@ mod tests {
         let init = handle_message(
             &s,
             &json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}),
+            &noop_notify(),
         )
         .await
         .unwrap();
         assert_eq!(init["result"]["protocolVersion"], "2025-03-26");
         assert_eq!(init["result"]["serverInfo"]["name"], "vygr");
 
-        let ping = handle_message(&s, &json!({"jsonrpc":"2.0","id":2,"method":"ping"}))
-            .await
-            .unwrap();
+        let ping = handle_message(
+            &s,
+            &json!({"jsonrpc":"2.0","id":2,"method":"ping"}),
+            &noop_notify(),
+        )
+        .await
+        .unwrap();
         assert_eq!(ping["result"], json!({}));
     }
 
@@ -376,22 +466,31 @@ mod tests {
         // No id => notification => no reply.
         assert!(handle_message(
             &s,
-            &json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+            &json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+            &noop_notify()
         )
         .await
         .is_none());
-        let err = handle_message(&s, &json!({"jsonrpc":"2.0","id":3,"method":"bogus"}))
-            .await
-            .unwrap();
+        let err = handle_message(
+            &s,
+            &json!({"jsonrpc":"2.0","id":3,"method":"bogus"}),
+            &noop_notify(),
+        )
+        .await
+        .unwrap();
         assert_eq!(err["error"]["code"], -32601);
     }
 
     #[tokio::test]
     async fn tools_list_exposes_four_tools() {
         let s = server();
-        let reply = handle_message(&s, &json!({"jsonrpc":"2.0","id":4,"method":"tools/list"}))
-            .await
-            .unwrap();
+        let reply = handle_message(
+            &s,
+            &json!({"jsonrpc":"2.0","id":4,"method":"tools/list"}),
+            &noop_notify(),
+        )
+        .await
+        .unwrap();
         let names: Vec<&str> = reply["result"]["tools"]
             .as_array()
             .unwrap()
@@ -418,7 +517,7 @@ mod tests {
             json!({"jsonrpc":"2.0","id":5,"method":"tools/call",
                    "params":{"name":"get_artifact","arguments":args}})
         };
-        let first = handle_message(&s, &call(json!({"path": rel})))
+        let first = handle_message(&s, &call(json!({"path": rel})), &noop_notify())
             .await
             .unwrap();
         let page = first["result"]["content"][0]["text"].as_str().unwrap();
@@ -428,9 +527,13 @@ mod tests {
         assert_eq!(parsed["has_more"], true);
 
         // Traversal refused.
-        let bad = handle_message(&s, &call(json!({"path": "../../etc/passwd"})))
-            .await
-            .unwrap();
+        let bad = handle_message(
+            &s,
+            &call(json!({"path": "../../etc/passwd"})),
+            &noop_notify(),
+        )
+        .await
+        .unwrap();
         assert!(bad["result"]["isError"].as_bool().unwrap_or(false) || bad["error"].is_object());
         std::env::set_current_dir(old).unwrap();
     }
@@ -441,6 +544,7 @@ mod tests {
         let reply = handle_message(
             &s,
             &json!({"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"nope"}}),
+            &noop_notify(),
         )
         .await
         .unwrap();

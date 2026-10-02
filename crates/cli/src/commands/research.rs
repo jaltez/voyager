@@ -92,7 +92,8 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         },
     };
 
-    let report = vygr_research::run(request, llm, http).await?;
+    let progress: vygr_research::ProgressSink = std::sync::Arc::new(|msg| eprintln!("vygr: {msg}"));
+    let report = vygr_research::run(request, llm, http, Some(progress)).await?;
 
     match args.format {
         ReportFormat::Md => {

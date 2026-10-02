@@ -111,11 +111,20 @@ If evidence blocks disagree, reconcile the disagreement explicitly instead of \
 averaging incompatible figures. End with a '## Caveats & open questions' section listing what could not \
 be verified from the provided evidence.";
 
+/// Receiver for human-readable progress lines during a run (levels,
+/// reflections, synthesis). The CLI prints them to stderr; the MCP server
+/// maps them to `notifications/progress` (which also keeps pi's 60s
+/// per-request timeout at bay).
+pub type ProgressSink = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
+
 pub async fn run(
     req: ResearchRequest,
     llm: Box<dyn LlmClient>,
     http: reqwest::Client,
+    progress: Option<ProgressSink>,
 ) -> Result<ResearchReport, VygrError> {
+    let progress = progress.unwrap_or_else(|| std::sync::Arc::new(|_| {}));
+    let report = |msg: String| progress(msg.as_str());
     let mut warnings = Vec::new();
     let mut spent = 0.0f64;
     let mut tracked = false;
@@ -150,6 +159,10 @@ pub async fn run(
         tracked = true;
     }
     tracing::info!(depth_used, subqueries = initial_queries.len(), "plan ready");
+    report(format!(
+        "plan ready: {} sub-queries, depth {depth_used}",
+        initial_queries.len()
+    ));
     let _ = run_dir::write_file(
         &dir,
         "plan.json",
@@ -277,12 +290,13 @@ pub async fn run(
         let new_count = level_sources.len();
         sources.extend(level_sources);
         iterations_done = level + 1;
-        eprintln!(
-            "vygr: level {}/{depth_used}: {new_count} new sources ({} total)",
+        report(format!(
+            "level {}/{}: {} new sources ({} total)",
             level + 1,
-            sources.len(),
-            depth_used = depth_used
-        );
+            depth_used,
+            new_count,
+            sources.len()
+        ));
 
         // 2e) Reflect for the next level (skipped on the last one).
         if level + 1 >= depth_used {
@@ -304,7 +318,8 @@ pub async fn run(
                     spent += c;
                     tracked = true;
                 }
-                let has_followups = !reflection.followups.is_empty();
+                let followup_count = reflection.followups.len();
+                let has_followups = followup_count > 0;
                 reflections.extend(reflection.notes);
                 let _ = run_dir::write_file(
                     &dir,
@@ -316,6 +331,10 @@ pub async fn run(
                     }))
                     .unwrap_or_default(),
                 );
+                report(format!(
+                    "reflection: {} notes, {followup_count} follow-up queries",
+                    reflections.len()
+                ));
                 if !has_followups {
                     tracing::info!(level, "reflection satisfied; stopping");
                     break;
@@ -356,6 +375,10 @@ pub async fn run(
     let _ = run_dir::write_file(&dir, "sources.json", &sources_json);
 
     // 4) Budget guard before the expensive call (ADR-0007).
+    report(format!(
+        "synthesizing report from {} sources",
+        sources.len()
+    ));
     let mut schema_valid: Option<bool> = None;
     let answer = if over_budget(spent, tracked) {
         budget_exhausted = true;

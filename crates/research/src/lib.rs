@@ -7,5 +7,5 @@ mod planner;
 mod run_dir;
 mod score;
 
-pub use orchestrator::{run, DepthSpec, ResearchReport, ResearchRequest};
+pub use orchestrator::{run, DepthSpec, ProgressSink, ResearchReport, ResearchRequest};
 pub use run_dir::create_run_dir;
