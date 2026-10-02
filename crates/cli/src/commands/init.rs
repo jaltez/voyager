@@ -57,19 +57,29 @@ pub fn run(args: Args) -> Result<(), VygrError> {
 mod tests {
     use super::*;
 
-    /// The repository-root copy exists for the `npx skills` ecosystem and
-    /// must never drift from the packaged canonical file. Skipped when the
+    /// Files shipped as repository copies for GitHub / `npx skills` must
+    /// never drift from the packaged canonicals. Skipped when the
     /// repository root is not present (e.g. the published crate).
     #[test]
-    fn root_skill_copy_matches_packaged_canonical() {
-        let root_copy = PathBuf::from("../../skills/vygr/SKILL.md");
-        if !root_copy.exists() {
-            return;
+    fn repository_copies_match_packaged_canonicals() {
+        let pairs = [
+            (
+                PathBuf::from("../../skills/vygr/SKILL.md"),
+                SKILL_MD,
+                "skills/vygr/SKILL.md drifted from crates/cli/skill/SKILL.md",
+            ),
+            (
+                PathBuf::from("../../README.md"),
+                include_str!("../../README.md"),
+                "repository README.md drifted from crates/cli/README.md",
+            ),
+        ];
+        for (root_copy, packaged, message) in pairs {
+            if !root_copy.exists() {
+                continue;
+            }
+            let on_disk = fs::read_to_string(&root_copy).unwrap();
+            assert_eq!(on_disk, packaged, "{message}");
         }
-        let on_disk = fs::read_to_string(&root_copy).unwrap();
-        assert_eq!(
-            on_disk, SKILL_MD,
-            "skills/vygr/SKILL.md drifted from crates/cli/skill/SKILL.md"
-        );
     }
 }

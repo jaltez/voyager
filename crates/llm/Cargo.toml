@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+readme = "README.md"
 description = "voyager LLM backends: OpenAI-compatible, Ollama, harness shell-out, models.dev catalog"
 
 [dependencies]

@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 authors = ["Javier Altez"]
@@ -11,10 +11,10 @@ repository = "https://github.com/jaltez/voyager"
 description = "Configurable deep research CLI with pluggable search providers and LLM backends"
 
 [workspace.dependencies]
-vygr-core = { path = "crates/core", version = "0.4.0" }
-vygr-providers = { path = "crates/providers", version = "0.4.0" }
-vygr-llm = { path = "crates/llm", version = "0.4.0" }
-vygr-research = { path = "crates/research", version = "0.4.0" }
+vygr-core = { path = "crates/core", version = "0.4.1" }
+vygr-providers = { path = "crates/providers", version = "0.4.1" }
+vygr-llm = { path = "crates/llm", version = "0.4.1" }
+vygr-research = { path = "crates/research", version = "0.4.1" }
 
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
