@@ -19,7 +19,8 @@ pub fn run() -> Result<(), VygrError> {
             "schema": "this self-description",
             "config": "show effective configuration and paths",
             "init": "install the voyager skill into an agent harness",
-            "serve": "run as an MCP server over stdio; tools: search, extract, research, get_artifact (paged reads of run artifacts)"
+            "serve": "run as an MCP server over stdio; tools: search, extract, research, get_artifact (paged reads of run artifacts)",
+            "update": "self-update from crates.io; --check only reports (source-checkout builds are refused)"
         },
         "provider_chains": "comma-separated fallback; first provider with results wins; --all queries every provider concurrently and dedups by URL",
         "llm_specs": [

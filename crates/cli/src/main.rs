@@ -50,8 +50,10 @@ enum Commands {
     Init(commands::init::Args),
     /// Inspect or clear the on-disk search cache
     Cache(commands::cache::Args),
-    /// Run as an MCP server over stdio (not yet implemented)
+    /// Run as an MCP server over stdio (search, extract, research, get_artifact)
     Serve,
+    /// Self-update from crates.io (`--check` only reports)
+    Update(commands::update::Args),
 }
 
 #[tokio::main]
@@ -73,6 +75,7 @@ async fn main() {
         Commands::Init(args) => commands::init::run(args),
         Commands::Cache(args) => commands::cache::run(args),
         Commands::Serve => mcp::serve(http).await,
+        Commands::Update(args) => commands::update::run(args, http).await,
     };
 
     if let Err(e) = result {

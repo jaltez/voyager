@@ -53,6 +53,7 @@ cargo install --path crates/cli --bin vygr  # from a checkout
 | `vygr init --agent pi\|omp\|opencode\|…` | install the agent skill (see below) |
 | `vygr cache dir\|clear` | inspect or clear the search cache |
 | `vygr serve` | MCP server over stdio (`search`, `extract`, `research`, `get_artifact`) |
+| `vygr update` | self-update from crates.io (`--check` reports only) |
 
 Machine contract: `--format json` everywhere, diagnostics on stderr, exit
 codes `0` ok / `2` usage / `3` config-auth / `4` provider-network, `-`

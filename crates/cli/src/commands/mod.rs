@@ -10,6 +10,7 @@ pub mod providers;
 pub mod research;
 pub mod schema;
 pub mod search;
+pub mod update;
 
 use std::io::Read;
 
