@@ -186,7 +186,7 @@ async fn call_tool(
             )
             .map_err(|e| (-32602_i64, e.to_string()))?;
             let (results, warnings) = vygr_providers::search_chain(
-                &handle.providers,
+                &handle,
                 &vygr_core::provider::SearchQuery::new(query, max_results),
             )
             .await;

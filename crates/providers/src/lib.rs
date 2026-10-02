@@ -67,12 +67,60 @@ pub fn env_requirement(id: &str) -> Option<&'static str> {
     }
 }
 
-/// A built provider chain plus its shared cache statistics. The stack per
-/// provider is `Cached(Throttled(Inner))`; hits cost neither spacing nor
-/// retries (ADR-0010).
+/// Per-provider circuit breaker state shared by a chain: after
+/// `FAILURES_TO_OPEN` consecutive failures a provider is skipped for
+/// `OPEN_SECONDS`, so fan-outs stop burning full timeouts on a dead
+/// backend (hsearch v1.1.0 lesson: 32s stuck calls become fast skips).
+#[derive(Debug, Default)]
+pub struct Health {
+    failures: std::sync::Mutex<HashMap<String, u32>>,
+    open_until: std::sync::Mutex<HashMap<String, std::time::Instant>>,
+}
+
+const FAILURES_TO_OPEN: u32 = 3;
+const OPEN_SECONDS: u64 = 60;
+
+impl Health {
+    /// Whether the provider is currently skipped, resetting the window
+    /// when the cooldown elapsed.
+    fn is_open(&self, id: &str) -> bool {
+        let mut open = self.open_until.lock().unwrap();
+        match open.get(id).copied() {
+            Some(until) if std::time::Instant::now() < until => true,
+            Some(_) => {
+                open.remove(id);
+                self.failures.lock().unwrap().remove(id);
+                false
+            }
+            None => false,
+        }
+    }
+
+    fn record(&self, id: &str, ok: bool) {
+        let mut failures = self.failures.lock().unwrap();
+        if ok {
+            failures.remove(id);
+            return;
+        }
+        let count = failures.entry(id.to_string()).or_insert(0);
+        *count += 1;
+        if *count >= FAILURES_TO_OPEN {
+            self.open_until.lock().unwrap().insert(
+                id.to_string(),
+                std::time::Instant::now() + std::time::Duration::from_secs(OPEN_SECONDS),
+            );
+        }
+    }
+}
+
+/// A built provider chain plus its shared cache statistics and provider
+/// health. The stack per provider is
+/// `Cached(Throttled(Inner))`; hits cost neither spacing nor retries
+/// (ADR-0010).
 pub struct ChainHandle {
     pub providers: Vec<Box<dyn SearchProvider>>,
     pub cache: Arc<CacheStats>,
+    pub health: Arc<Health>,
 }
 
 /// Build a fallback chain from a comma-separated spec such as `"ddgs,brave"`,
@@ -93,6 +141,7 @@ pub fn build_chain(
     }
 
     let stats = Arc::new(CacheStats::default());
+    let health = Arc::new(Health::default());
     let cache_root = vygr_core::config::Config::cache_dir().map(|d| d.join("search"));
     let providers = ids
         .iter()
@@ -139,49 +188,85 @@ pub fn build_chain(
     Ok(ChainHandle {
         providers,
         cache: stats,
+        health,
     })
 }
 
 /// Run the chain in order; the first provider with a non-empty result set
 /// (after domain filters) wins, failures degrade to the next provider
-/// (hsearch-style fallback).
+/// (hsearch-style fallback). Providers with an open circuit are skipped
+/// with a warning instead of burning their timeout.
 pub async fn search_chain(
-    chain: &[Box<dyn SearchProvider>],
+    handle: &ChainHandle,
     query: &SearchQuery,
 ) -> (Vec<SearchResult>, Vec<String>) {
     let mut warnings = Vec::new();
-    for provider in chain {
+    for provider in &handle.providers {
+        let id = provider.id();
+        if handle.health.is_open(id) {
+            warnings.push(format!("{id}: circuit open (recent failures); skipped"));
+            continue;
+        }
         match provider.search(query).await {
             Ok(results) => {
+                handle.health.record(id, true);
                 let filtered = filter_domains(results, query);
                 if !filtered.is_empty() {
                     return (filtered, warnings);
                 }
-                warnings.push(format!(
-                    "{}: no results after domain filters",
-                    provider.id()
-                ));
+                warnings.push(format!("{id}: no results after domain filters"));
             }
             // VygrError::Provider already carries the provider id.
-            Err(e) => warnings.push(e.to_string()),
+            // Only outage-shaped failures (429/5xx/network) count toward
+            // the circuit; auth and config errors are stable misconfig.
+            Err(e) => {
+                if e.is_retriable() {
+                    handle.health.record(id, false);
+                }
+                warnings.push(e.to_string());
+            }
         }
     }
     (Vec::new(), warnings)
 }
 
-/// Fan out to every provider in the chain concurrently and merge the
-/// results, deduplicating by normalized URL (hsearch `--all` behavior).
+/// Fan out to every healthy provider concurrently and merge the results,
+/// deduplicating by normalized URL (hsearch `--all` behavior). Open
+/// circuits are skipped up front.
 pub async fn search_all(
-    chain: &[Box<dyn SearchProvider>],
+    handle: &ChainHandle,
     query: &SearchQuery,
 ) -> (Vec<SearchResult>, Vec<String>) {
-    let outcomes = join_all(chain.iter().map(|p| p.search(query))).await;
     let mut warnings = Vec::new();
+    let active: Vec<&Box<dyn SearchProvider>> = handle
+        .providers
+        .iter()
+        .filter(|p| {
+            if handle.health.is_open(p.id()) {
+                warnings.push(format!(
+                    "{}: circuit open (recent failures); skipped",
+                    p.id()
+                ));
+                false
+            } else {
+                true
+            }
+        })
+        .collect();
+    let outcomes = join_all(active.iter().map(|p| p.search(query))).await;
     let mut all = Vec::new();
-    for outcome in outcomes {
+    for (provider, outcome) in active.iter().zip(outcomes) {
         match outcome {
-            Ok(results) => all.extend(results),
-            Err(e) => warnings.push(e.to_string()),
+            Ok(results) => {
+                handle.health.record(provider.id(), true);
+                all.extend(results);
+            }
+            Err(e) => {
+                if e.is_retriable() {
+                    handle.health.record(provider.id(), false);
+                }
+                warnings.push(e.to_string());
+            }
         }
     }
     (filter_domains(dedup(all), query), warnings)
@@ -301,6 +386,44 @@ mod tests {
         );
         assert_eq!(host_of("http://www.Example.com:8080/a"), "example.com");
         assert_eq!(host_of("https://a.io"), "a.io");
+    }
+
+    #[tokio::test]
+    async fn circuit_opens_after_consecutive_failures_and_skips() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct Dead {
+            calls: std::sync::Arc<AtomicUsize>,
+        }
+        #[async_trait::async_trait]
+        impl SearchProvider for Dead {
+            fn id(&self) -> &'static str {
+                "dead"
+            }
+            async fn search(&self, _query: &SearchQuery) -> Result<Vec<SearchResult>, VygrError> {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                Err(VygrError::provider_status("dead", "boom", 503))
+            }
+        }
+
+        let calls = std::sync::Arc::new(AtomicUsize::new(0));
+        let handle = ChainHandle {
+            providers: vec![Box::new(Dead {
+                calls: std::sync::Arc::clone(&calls),
+            })],
+            cache: Arc::new(CacheStats::default()),
+            health: Arc::new(Health::default()),
+        };
+        let q = SearchQuery::new("x", 1);
+        for _ in 0..3 {
+            let _ = search_chain(&handle, &q).await;
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        // The circuit is open: the fourth call skips the provider.
+        let (results, warnings) = search_chain(&handle, &q).await;
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        assert!(results.is_empty());
+        assert!(warnings.iter().any(|w| w.contains("circuit open")));
     }
 
     #[test]

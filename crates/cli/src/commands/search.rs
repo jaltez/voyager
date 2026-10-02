@@ -97,9 +97,9 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         )
         .with_language(args.language.clone());
     let (mut results, warnings) = if args.all {
-        vygr_providers::search_all(&handle.providers, &q).await
+        vygr_providers::search_all(&handle, &q).await
     } else {
-        vygr_providers::search_chain(&handle.providers, &q).await
+        vygr_providers::search_chain(&handle, &q).await
     };
     for w in &warnings {
         tracing::warn!("{w}");

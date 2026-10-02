@@ -216,7 +216,7 @@ pub async fn run(
                     req.exclude_domains.clone(),
                 )
                 .with_language(req.language.clone());
-            let (rs, w) = vygr_providers::search_chain(&handle.providers, &q).await;
+            let (rs, w) = vygr_providers::search_chain(&handle, &q).await;
             warnings.extend(w);
             level_results.extend(rs);
         }
