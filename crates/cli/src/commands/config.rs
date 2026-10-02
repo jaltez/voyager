@@ -1,4 +1,4 @@
-//! `vygr config` — show the effective configuration, layer sources and paths.
+//! `vygr config`: show the effective configuration, layer sources and paths.
 
 use clap::Args as ClapArgs;
 use vygr_core::config::Config;

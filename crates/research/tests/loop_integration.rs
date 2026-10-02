@@ -1,5 +1,5 @@
 //! End-to-end integration test of the research loop (M2.2/M2.3) with a
-//! scripted LLM and a local fake searxng + page server — no external
+//! scripted LLM and a local fake searxng + page server, with no external
 //! network required.
 
 use std::sync::atomic::{AtomicU32, Ordering};

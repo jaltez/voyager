@@ -42,17 +42,17 @@ Combinators in `vygr-providers` give the multi-provider behavior:
 
 `--llm <spec>` resolves to a backend:
 
-- `pi` / `claude` / `codex` — **harness shell-out**: vygr runs the harness in
+- `pi` / `claude` / `codex`: **harness shell-out**. vygr runs the harness in
   print mode and pipes the prompt through stdin (argv carries a short
   instruction), reusing the harness's configured model and credentials with
   no MCP pass-through. `codex` keeps the argv channel with a size guard.
-- `ollama:<model>` — **native** `/api/chat` client with `think: false` and
+- `ollama:<model>`: **native** `/api/chat` client with `think: false` and
   `format: "json"` (ADR-0013); the OpenAI-compatible endpoint ignores
   thinking control, which reasoning models need disabled.
-- `openai-compat` + `[llm] base_url/model` — any custom endpoint; reasoning
+- `openai-compat` + `[llm] base_url/model`: any custom endpoint; reasoning
   models answered via the `reasoning` field are supported (`<think>`
   blocks stripped).
-- `<provider>:<model>` — any models.dev provider with an OpenAI-compatible
+- `<provider>:<model>`: any models.dev provider with an OpenAI-compatible
   base URL (e.g. `openrouter:anthropic/claude-sonnet-4.5`). The models.dev
   catalog (cached 24h) also supplies per-token pricing used for cost
   accounting.
@@ -67,7 +67,7 @@ query ──> planner (LLM: sub-queries up-front + depth in [min,max])
             └─> synthesize (LLM: markdown report, [n] citations)
 ```
 
-Only distilled reflection notes feed later stages — raw pages never
+Only distilled reflection notes feed later stages; raw pages never
 re-enter the loop (Tavily lesson). The budget guard runs before every
 reflection and before synthesis. A `--output-schema` file switches
 synthesis to JSON-constrained output with parse-level validation.

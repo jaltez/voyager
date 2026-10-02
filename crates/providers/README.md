@@ -3,7 +3,7 @@
 Search and fetch providers for the [vygr](https://crates.io/crates/vygr)
 deep research CLI: eight web-search backends (keyless DuckDuckGo, Brave,
 Tavily, SearXNG, Exa, Serper, Jina, Kagi), an HTTP page fetcher with
-structured markdown extraction, plus the multi-provider combinators —
+structured markdown extraction, plus the multi-provider combinators:
 ordered fallback chains, concurrent fan-out with URL dedup, disk cache
 with query-class TTLs and per-provider rate limiting with retry/backoff.
 

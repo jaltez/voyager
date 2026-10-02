@@ -1,7 +1,7 @@
 # Comparative analysis: the five reference tools
 
 - **Date:** 2026-10-01
-- **Purpose:** background for the ADRs — what voyager borrows from each
+- **Purpose:** background for the ADRs: what voyager borrows from each
   tool and what it deliberately rejects.
 
 ## Summary table
@@ -20,25 +20,25 @@
 
 ## What voyager takes from each
 
-- **tvly** — the machine contract: `--format json`, stderr diagnostics,
-  exit-code taxonomy, stdin queries, async-job patterns; and their
+- **tvly**: the machine contract (`--format json`, stderr diagnostics,
+  exit-code taxonomy, stdin queries, async-job patterns) and their
   engineering lesson that loops should consume distilled reflections, not
   raw tool outputs. Rejected: single-vendor lock-in, server-side-only LLM.
-- **GPT Researcher** — the loop itself: sub-queries planned up-front
+- **GPT Researcher**: the loop itself, with sub-queries planned up-front
   (determinism), bounded fan-out with URL dedup, tiered LLMs with cost
   accounting, breadth/depth knobs with per-level halving, BM25-style
   filtering without embeddings. Rejected: LangChain dependency weight,
   Python footprint, config sprawl.
-- **hsearch** — multi-provider ergonomics: fallback chains, `--all`
+- **hsearch**: multi-provider ergonomics (fallback chains, `--all`,
   fan-out + dedup, `--extract-top N`, mode-aware cache TTLs, `schema`
-  self-description, `usage`/`providers` introspection. Rejected: thin
+  self-description, `usage`/`providers` introspection). Rejected: thin
   wrappers over paid research APIs as the "research" feature.
-- **Web Forager** — the fetch ladder (HTTP text first, browser only on
+- **Web Forager**: the fetch ladder (HTTP text first, browser only on
   failure) and the methodology-as-prompt: multi-framing, disconfirming
   queries, syndication-as-one-source, reconcile-don't-average. Note: the
   "Web Forager paper" sometimes cited online does not exist; the
   toolkit is real, the architecture to port is not.
-- **Librarium** — hard budgets with preflight estimates and
+- **Librarium**: hard budgets with preflight estimates and
   unknown-cost-is-never-zero; run-artifact directories; token-safe paged
   MCP; provider profiles grouped by latency tier. Rejected: no iterative
   digging, no local LLM.

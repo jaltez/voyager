@@ -5,11 +5,11 @@ CLI, behind one async trait (`LlmClient`):
 
 - **OpenAI-compatible** endpoints, auto-configured from the
   [models.dev](https://models.dev) catalog (provider id, key env var, base
-  URL, per-token pricing) — with reasoning-model fallback (`reasoning`
+  URL, per-token pricing), with reasoning-model fallback (`reasoning`
   field, `<think>` stripping)
 - **Native Ollama client** (`/api/chat`) with `think: false`, auto-sized
   `num_ctx` and JSON-constrained output via `format: "json"`
-- **Harness shell-out** — reuse the LLM already configured in an agent
+- **Harness shell-out**: reuse the LLM already configured in an agent
   harness (`pi --print`, `claude -p`, `codex exec`), prompts piped through
   stdin to stay under argv limits
 

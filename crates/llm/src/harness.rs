@@ -1,6 +1,6 @@
 //! Harness shell-out backend (ADR-0004): reuse the LLM already configured
 //! in an agent harness (`pi --print`, `claude -p`, `codex exec`) instead of
-//! managing keys and models ourselves. No MCP pass-through needed — we
+//! managing keys and models ourselves. No MCP pass-through needed; we
 //! simply run the harness in print mode and capture stdout.
 //!
 //! Prompts are piped through the child's stdin (M2.4): research prompts

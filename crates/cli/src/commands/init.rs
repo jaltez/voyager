@@ -1,4 +1,4 @@
-//! `vygr init` — install the voyager skill into an agent harness
+//! `vygr init`: install the voyager skill into an agent harness
 //! (tvly-style guided setup; `npx skills add jaltez/voyager` for agents).
 
 use std::fs;

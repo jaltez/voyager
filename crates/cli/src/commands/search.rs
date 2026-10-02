@@ -1,4 +1,4 @@
-//! `vygr search` — provider-chain web search with optional content inlining.
+//! `vygr search`: provider-chain web search with optional content inlining.
 
 use clap::Args as ClapArgs;
 use futures::future::join_all;

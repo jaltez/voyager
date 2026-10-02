@@ -1,7 +1,7 @@
 # vygr-research
 
 The research engine of the [vygr](https://crates.io/crates/vygr) CLI:
-a plan-then-execute deep research loop — LLM-planned sub-queries up
+a plan-then-execute deep research loop: LLM-planned sub-queries up
 front, iterative levels with breadth halving, distilled reflection notes
 feeding follow-up searches (raw pages never re-enter the loop), BM25
 source ranking, per-call budget enforcement, optional JSON-Schema

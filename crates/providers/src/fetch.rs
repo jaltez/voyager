@@ -71,7 +71,7 @@ impl FetchProvider for HttpFetch {
 /// Extract `<title>` and a structured markdown rendering of the main
 /// content (M1.5): prefer `article` / `[role=main]` / `main` as the root,
 /// drop boilerplate subtrees (nav, footer, aside, header, form, scripts…)
-/// and emit block elements in document order — headings as markdown, list
+/// and emit block elements in document order: headings as markdown, list
 /// items as bullets, `pre` as fenced code, paragraphs as text. Elements
 /// nested inside another block element are skipped so text is not
 /// duplicated; the ancestor emits its flattened content instead.

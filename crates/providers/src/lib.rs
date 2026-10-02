@@ -61,7 +61,7 @@ pub fn env_requirement(id: &str) -> Option<&'static str> {
 }
 
 /// A built provider chain plus its shared cache statistics. The stack per
-/// provider is `Cached(Throttled(Inner))` — hits cost neither spacing nor
+/// provider is `Cached(Throttled(Inner))`; hits cost neither spacing nor
 /// retries (ADR-0010).
 pub struct ChainHandle {
     pub providers: Vec<Box<dyn SearchProvider>>,
@@ -229,7 +229,7 @@ fn domain_matches(host: &str, domain: &str) -> bool {
     host == domain || host.ends_with(&format!(".{domain}"))
 }
 
-/// Apply the query's include/exclude domain filters client-side (M1.3) —
+/// Apply the query's include/exclude domain filters client-side (M1.3),
 /// uniformly across providers, including those with native support.
 pub fn filter_domains(results: Vec<SearchResult>, query: &SearchQuery) -> Vec<SearchResult> {
     if query.include_domains.is_empty() && query.exclude_domains.is_empty() {

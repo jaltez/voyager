@@ -1,4 +1,4 @@
-//! `vygr cache` — inspect and clear the on-disk search cache (M1.2).
+//! `vygr cache`: inspect and clear the on-disk search cache (M1.2).
 
 use clap::Args as ClapArgs;
 use vygr_core::VygrError;

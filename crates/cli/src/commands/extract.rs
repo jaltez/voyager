@@ -1,4 +1,4 @@
-//! `vygr extract` — fetch URLs and reduce them to plain text.
+//! `vygr extract`: fetch URLs and reduce them to plain text.
 
 use clap::Args as ClapArgs;
 use futures::future::join_all;

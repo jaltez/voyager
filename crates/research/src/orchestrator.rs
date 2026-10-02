@@ -1,7 +1,7 @@
 //! Orchestrates research runs (ADR-0005, ADR-0012): plan-then-execute with
 //! iterative depth. Each level searches its sub-queries, fetches and scores
 //! new sources, then a reflection pass distills notes and generates
-//! follow-up queries for the next level — only distilled notes feed later
+//! follow-up queries for the next level; only distilled notes feed later
 //! stages (Tavily lesson). Breadth halves per level (GPT Researcher model)
 //! and LLM costs are accumulated, with the budget guard running before
 //! every expensive call.
@@ -284,7 +284,7 @@ pub async fn run(
             depth_used = depth_used
         );
 
-        // 2e) Reflect for the next level — skipped on the last one.
+        // 2e) Reflect for the next level (skipped on the last one).
         if level + 1 >= depth_used {
             break;
         }
@@ -477,7 +477,7 @@ fn assemble_context(sources: &[Source], max_chars: usize) -> String {
         if excerpt.is_empty() {
             continue;
         }
-        let block = format!("[{}] {} — {}\n{}\n\n", i + 1, s.title, s.url, excerpt);
+        let block = format!("[{}] {} ({})\n{}\n\n", i + 1, s.title, s.url, excerpt);
         if used + block.len() > max_chars {
             break;
         }
@@ -487,8 +487,8 @@ fn assemble_context(sources: &[Source], max_chars: usize) -> String {
     context
 }
 
-/// Digest of the `newest` most recent sources, for the reflection input —
-/// always small; raw pages never enter the loop (ADR-0012).
+/// Digest of the `newest` most recent sources, for the reflection input.
+/// Always small; raw pages never enter the loop (ADR-0012).
 const DIGEST_MAX: usize = 6_000;
 
 fn sources_digest(sources: &[Source], newest: usize) -> String {
@@ -546,7 +546,7 @@ mod tests {
         ];
         sources[1].snippet = "snippet two".into();
         let ctx = assemble_context(&sources, 10_000);
-        assert!(ctx.starts_with("[1] a — https://a.io/a"));
+        assert!(ctx.starts_with("[1] a (https://a.io/a)"));
         assert!(ctx.contains("[2] b"));
         // A tiny cap stops after the first block.
         let ctx = assemble_context(&sources, 40);

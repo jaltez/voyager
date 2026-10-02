@@ -1,4 +1,4 @@
-//! `vygr serve` — MCP server over stdio (ADR-0011, M3.1).
+//! `vygr serve`: MCP server over stdio (ADR-0011, M3.1).
 //!
 //! Hand-rolled JSON-RPC 2.0 with newline-delimited messages: the protocol
 //! surface we need (initialize / ping / tools/list / tools/call) is tiny
@@ -326,7 +326,7 @@ fn tool_error(message: String) -> Value {
 }
 
 /// Resolve a relative artifact path under the current directory, refusing
-/// absolute paths and traversal — the MCP surface is read-only but should
+/// absolute paths and traversal; the MCP surface is read-only but should
 /// still not expose the whole filesystem.
 fn safe_path(path: &str) -> Result<PathBuf, String> {
     let p = PathBuf::from(path);

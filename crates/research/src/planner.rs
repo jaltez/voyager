@@ -1,5 +1,5 @@
 //! Query planner: turns the research question into a bounded set of
-//! sub-queries (generated up-front — the determinism insight from GPT
+//! sub-queries (generated up-front, the determinism insight from GPT
 //! Researcher) and lets the LLM pick a depth within the configured range.
 
 use serde::Deserialize;

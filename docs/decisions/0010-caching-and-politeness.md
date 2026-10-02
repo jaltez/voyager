@@ -5,8 +5,8 @@
 
 ## Context
 
-hsearch ships the smartest cheap trick we found: **mode-aware cache TTLs** —
-news results expire in minutes, reference/academic results in a day — plus
+hsearch ships the smartest cheap trick we found: **mode-aware cache TTLs**
+(news results expire in minutes, reference/academic results in a day), plus
 exponential backoff on 429/5xx. DuckDuckGo HTML scraping (our keyless
 default) needs both politeness and resilience.
 

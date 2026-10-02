@@ -1,4 +1,4 @@
-//! `vygr providers` — list search providers and their configuration status.
+//! `vygr providers`: list search providers and their configuration status.
 
 use clap::Args as ClapArgs;
 use vygr_core::config::Config;

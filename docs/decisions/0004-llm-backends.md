@@ -1,4 +1,4 @@
-# ADR 0004: LLM backends — models.dev, Ollama and harness shell-out
+# ADR 0004: LLM backends (models.dev, Ollama, harness shell-out)
 
 - **Date:** 2026-10-01
 - **Status:** Accepted
@@ -9,7 +9,7 @@ None of the surveyed tools solves "use any LLM" well: tvly has no client-side
 LLM; Librarium lacks Ollama and generic endpoints; GPT Researcher drags
 LangChain for ~24 providers. Separately, when vygr runs inside an agent
 harness (pi, Claude Code, Codex), the best LLM is the one **already
-configured there** — keys, model and session included. pi exposes no MCP
+configured there** (keys, model and session included). pi exposes no MCP
 server mode, but it does expose print-mode subprocesses (`pi --print`,
 `claude -p`, `codex exec`) and models.dev publishes a machine-readable
 catalog of providers, key env-vars, base URLs, limits and prices.
@@ -27,7 +27,7 @@ One trait, `LlmClient::complete(&CompletionRequest) -> CompletionResponse`
 | `<provider>:<model>` | any models.dev provider exposing an `api` base URL; env-var name, default model and per-token pricing come from the catalog (cached 24h) |
 
 Native non-OpenAI-compatible APIs (Anthropic, Google) are **not** implemented
-in phase 1 — route them through openrouter instead; native clients are
+in phase 1: route them through openrouter instead; native clients are
 roadmap if needed.
 
 Known limitation: `HarnessLlm` passes the prompt as an argv element; very
@@ -36,7 +36,7 @@ roadmap (phase 2).
 
 ## Consequences
 
-- "Any provider" support is a JSON download away — no provider matrix to
+- "Any provider" support is a JSON download away; no provider matrix to
   maintain by hand.
 - Harness reuse needs no MCP pass-through and no key duplication; the same
   spec works from a terminal or from inside an agent session.

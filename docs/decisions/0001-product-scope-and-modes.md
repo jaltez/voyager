@@ -16,14 +16,14 @@ the loop ownership of the latter, as a fast static Rust binary.
 
 voyager is a **configurable deep-research CLI** with three operating modes:
 
-1. **Search-only** — `vygr search` / `vygr extract`: provider chains and
+1. **Search-only**: `vygr search` / `vygr extract`. Provider chains and
    fan-out, machine-friendly output. Must work keyless out of the box
    (DuckDuckGo default).
-2. **Full research with an LLM** — `vygr research` runs plan → search →
+2. **Full research with an LLM**: `vygr research` runs plan → search →
    fetch → score → synthesize over any `LlmClient` backend: models.dev
    providers, Ollama, custom OpenAI-compatible endpoints, or the harness
    itself (mode 3).
-3. **Harness-driven** — invoked from an agent (pi, Claude Code, Codex…)
+3. **Harness-driven**: invoked from an agent (pi, Claude Code, Codex…)
    either as a plain CLI (the agent reads `--format json` output) or with
    `--llm pi` so the research loop **reuses the harness's configured LLM**
    via shell-out. MCP server mode is roadmap.

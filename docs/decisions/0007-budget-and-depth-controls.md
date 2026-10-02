@@ -1,4 +1,4 @@
-# ADR 0007: Depth and budget controls — user-bounded, LLM-decided
+# ADR 0007: Depth and budget controls (user-bounded, LLM-decided)
 
 - **Date:** 2026-10-01
 - **Status:** Accepted
@@ -8,7 +8,7 @@
 The requirement: let the user pin minimums and maximums of depth/searches, or
 leave the decision to the LLM. GPT Researcher exposes `BREADTH`/`DEPTH`/
 `CONCURRENCY` with breadth halving per level; Librarium adds the missing
-half — **hard cost budgets** with preflight estimates and confirmation, and
+half: **hard cost budgets** with preflight estimates and confirmation, and
 the rule that unknown cost is never treated as zero.
 
 ## Decision
@@ -20,8 +20,8 @@ the rule that unknown cost is never treated as zero.
 - `--breadth N` bounds sub-queries per pass.
 - `--budget-usd X` is a hard stop on synthesis: LLM costs are accumulated
   per call (where the backend knows its price table) and if the budget is
-  already exceeded, vygr returns sources without an answer plus a warning —
-  never silently overspends.
+  already exceeded, vygr returns sources without an answer plus a warning;
+  it never silently overspends.
 - `vygr plan` is the offline preflight: sub-queries, searches, pages and
   LLM calls the run would perform, with no network traffic.
 
@@ -31,6 +31,6 @@ per-call enforcement lands with iterative depth in phase 2.
 ## Consequences
 
 - "Leave it to the LLM" and "pin it down" are the same flag with a range vs
-  a fixed value — no separate auto mode to document.
+  a fixed value; no separate auto mode to document.
 - Cost tracking only exists for backends with known prices (catalog-based);
   harness and Ollama runs report no cost, not zero cost.

@@ -10,7 +10,7 @@ Live validation against Ollama surfaced three real problems with routing
 Ollama through the OpenAI-compatible endpoint:
 
 1. Reasoning models (qwen3.5, deepseek-r1, …) return `content: ""` and put
-   everything in a `reasoning` field — planner/reflection JSON parsing got
+   everything in a `reasoning` field, so planner/reflection JSON parsing got
    nothing usable.
 2. The `think: false` control is **ignored** by Ollama's
    OpenAI-compatible endpoint, so reasoning burned the whole token budget
@@ -24,12 +24,12 @@ Ollama through the OpenAI-compatible endpoint:
   `ollama` backend: `think: false` keeps structured outputs affordable,
   `format: "json"` implements `--output-schema` natively, and
   `options.num_predict`/`options.temperature` map the request knobs.
-  Local tokens report `cost_usd: None` (never zero — ADR-0007 rule).
+  Local tokens report `cost_usd: None` (never zero, per ADR-0007).
 - The OpenAI-compatible client gains a reasoning fallback: `content` is
   authoritative; when empty, the `reasoning` field is used; inline
   `<think>…</think>` blocks are stripped from both. Per-request timeout
   raised to 600 s for chat completions.
-- Planner/reflection token budgets raised (2500/2000) — reasoning models
+- Planner/reflection token budgets raised (2500/2000): reasoning models
   spend budget thinking before emitting JSON.
 
 ## Consequences

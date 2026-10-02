@@ -1,4 +1,4 @@
-//! `vygr models` — browse the models.dev catalog (providers, models,
+//! `vygr models`: browse the models.dev catalog (providers, models,
 //! pricing) used for LLM backend discovery and cost estimation.
 
 use clap::Args as ClapArgs;

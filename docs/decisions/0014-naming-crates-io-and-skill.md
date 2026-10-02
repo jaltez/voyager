@@ -1,4 +1,4 @@
-# ADR 0014: Naming — crates.io packages and skill name
+# ADR 0014: Naming (crates.io packages and skill name)
 
 - **Date:** 2026-10-02
 - **Status:** Accepted

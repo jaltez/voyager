@@ -20,10 +20,10 @@ LLM agents can discover the interface at runtime.
   **stderr** (tracing writes to stderr; `RUST_LOG` respected, `-v/-vv`).
 - **Exit codes**: `0` success · `1` internal · `2` usage (clap default) ·
   `3` config/auth (missing key or backend) · `4` provider/network failure.
-  The mapping lives in `VygrError::exit_code` — one source of truth.
+  The mapping lives in `VygrError::exit_code`, one source of truth.
 - **Stdin queries**: any command taking `<QUERY>` accepts `-`.
 - **Self-description**: `vygr schema` prints a JSON description of every
-  command, the LLM spec grammar and the exit-code table — agents embed it
+  command, the LLM spec grammar and the exit-code table; agents embed it
   in prompts (the hsearch trick, one command instead of a manual).
 
 ## Consequences

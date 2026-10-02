@@ -1,5 +1,5 @@
 //! Context relevance scoring (ADR-0006, M2.1): Okapi BM25 over the run's
-//! own corpus. No embeddings, no vector store — short-lived research runs
+//! own corpus. No embeddings, no vector store; short-lived research runs
 //! do not justify the machinery.
 
 use std::collections::{HashMap, HashSet};

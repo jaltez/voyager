@@ -46,7 +46,7 @@ struct Options {
     num_predict: Option<u32>,
     /// Context window. Ollama defaults to a small `num_ctx` (~4k tokens)
     /// and silently truncates prompts from the left, which derails
-    /// synthesis on research-sized prompts — size it from the prompt.
+    /// synthesis on research-sized prompts; size it from the prompt.
     num_ctx: u32,
 }
 

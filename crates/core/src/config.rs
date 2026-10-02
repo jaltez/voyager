@@ -128,7 +128,7 @@ impl Default for CacheConf {
     }
 }
 
-/// Everything the provider stack needs besides the query itself — a
+/// Everything the provider stack needs besides the query itself: a
 /// convenience view over the config sections, passed to `build_chain`.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct SearchStackConf {
@@ -147,7 +147,7 @@ impl SearchStackConf {
     }
 }
 
-/// Raw file representation — sections are optional so we can overlay files
+/// Raw file representation; sections are optional so we can overlay files
 /// without resetting untouched sections to defaults.
 #[derive(Debug, Default, Deserialize)]
 struct FileConfig {
@@ -306,7 +306,7 @@ mod tests {
         assert_eq!(p.max_retries, 2);
         assert_eq!(p.overrides.get("ddgs"), Some(&1_200));
         // A file section replaces the section wholesale, so overrides
-        // supplied by the user drop the ddgs default — documented behavior.
+        // supplied by the user drop the ddgs default (documented behavior).
         let file: FileConfig = toml::from_str("[politeness]\nmax_retries = 0\n").unwrap();
         assert_eq!(file.politeness.unwrap().max_retries, 0);
     }

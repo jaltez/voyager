@@ -1,6 +1,6 @@
 ---
 name: vygr
-description: Deep, multi-source web research using the vygr CLI (voyager). Use when a task needs exhaustive, well-cited investigation of a topic — comparing options, mapping a technology or market landscape, or fact-finding that benefits from multiple independent sources — rather than a single quick lookup.
+description: Deep, multi-source web research using the vygr CLI (voyager). Use when a task needs exhaustive, well-cited investigation of a topic, such as comparing options, mapping a technology or market landscape, or fact-finding that benefits from multiple independent sources, rather than a single quick lookup.
 license: MIT
 ---
 
@@ -9,7 +9,7 @@ license: MIT
 `vygr` is a command-line research tool: it searches the web through provider
 chains (keyless DuckDuckGo by default), fetches and reduces pages to text, and
 can run a full plan-search-synthesize research loop over any configured LLM
-backend — including *your own harness LLM* when invoked with `--llm pi` (or
+backend, including *your own harness LLM* when invoked with `--llm pi` (or
 `claude` / `codex`).
 
 ## Quick lookups
@@ -63,7 +63,7 @@ When driving vygr through a full research run, follow this discipline:
 - `vygr providers` shows which search backends have credentials; `vygr models`
   browses the models.dev catalog for `--llm` specs.
 - When you (the harness) already have a capable LLM, prefer `--llm pi` /
-  `--llm claude` / `--llm codex` — vygr will shell out to you and reuse your
+  `--llm claude` / `--llm codex`; vygr will shell out to you and reuse your
   configured model, keys and session.
 - As an MCP server (`vygr serve` over stdio) vygr exposes `search`,
   `extract`, `research` and `get_artifact`; page long artifacts with

@@ -1,4 +1,4 @@
-//! vygr — voyager deep research CLI.
+//! vygr: the voyager deep research CLI.
 
 mod commands;
 mod mcp;
@@ -11,8 +11,8 @@ use vygr_core::Config;
 #[command(
     name = "vygr",
     version,
-    about = "voyager — configurable deep research CLI",
-    long_about = "voyager — configurable deep research CLI.\n\n\
+    about = "voyager: configurable deep research CLI",
+    long_about = "voyager: configurable deep research CLI.\n\n\
 Search the web through provider chains (ddgs keyless, brave, tavily), run full \
 deep-research loops over any LLM backend (models.dev providers, Ollama, or the \
 LLM already configured in a harness like pi), and leave a complete evidence \

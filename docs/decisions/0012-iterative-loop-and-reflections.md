@@ -6,7 +6,7 @@
 ## Context
 
 The phase-0 scaffold executed a single plan-search-synthesize pass: the
-`depth` setting had no effect. Two reference insights were still unused —
+`depth` setting had no effect. Two reference insights were still unused:
 GPT Researcher's breadth-halving depth tree and Tavily's lesson that
 iterations should consume **distilled reflections**, not raw tool outputs
 (~66% token reduction).
@@ -30,7 +30,7 @@ iterations should consume **distilled reflections**, not raw tool outputs
 Graceful stops, in order of preference: satisfied reflection (no
 followups), no fresh sources found, reflection failure (the run warns and
 synthesizes what it has), budget exhausted (checked before every
-reflection and before synthesis). Raw pages never enter the loop — only
+reflection and before synthesis). Raw pages never enter the loop; only
 the reflection buffer and the final bounded context window.
 
 Synthesis consumes the ranked evidence, the reflection buffer and the
@@ -40,7 +40,7 @@ initial sub-queries; citations `[n]` index the (ranked) `sources.json`.
 
 - Depth is now real: `--depth 3` means up to 3 search rounds with
   narrowing focus; `iterations` in the report records what actually ran.
-- Reflection calls double the LLM call count minus one — budget tracking
+- Reflection calls double the LLM call count minus one; budget tracking
   covers them, and local/free backends pay nothing.
 - The evidence trail gains `reflections.json`; the answer's Caveats
   section is anchored in what the reflection pass flagged as unverified.

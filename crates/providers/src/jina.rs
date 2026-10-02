@@ -114,7 +114,7 @@ pub fn parse_jina_markdown(raw: &str) -> Vec<SearchResult> {
             || line.starts_with("Warning:")
             || line.trim().is_empty()
         {
-            // metadata or separators — never snippet material
+            // metadata or separators; never snippet material
         } else if title.is_some() && url.is_some() && snippet.len() < 2 {
             snippet.push(line.trim().to_string());
         }

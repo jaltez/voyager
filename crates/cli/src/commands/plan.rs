@@ -1,4 +1,4 @@
-//! `vygr plan` — offline preflight (Librarium-inspired): show what a
+//! `vygr plan`: offline preflight in the Librarium spirit. Show what a
 //! research run would do without touching the network.
 
 use clap::Args as ClapArgs;

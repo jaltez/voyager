@@ -1,4 +1,4 @@
-//! `vygr schema` — machine-readable self-description so LLM agents can
+//! `vygr schema`: machine-readable self-description so LLM agents can
 //! discover the full interface at runtime (hsearch-inspired).
 
 use vygr_core::VygrError;

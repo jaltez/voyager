@@ -1,5 +1,5 @@
 //! Run artifact directories (ADR-0009): every research run leaves an
-//! evidence trail on disk under `./agents/voyager/<timestamp>-<slug>/` —
+//! evidence trail on disk under `./agents/voyager/<timestamp>-<slug>/`:
 //! `prompt.md`, `plan.json`, `sources.json` and `answer.md`.
 
 use std::fs;

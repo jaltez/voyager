@@ -1,4 +1,4 @@
-//! `vygr research` — full deep-research run over any LLM backend.
+//! `vygr research`: full deep-research run over any LLM backend.
 
 use clap::Args as ClapArgs;
 use vygr_core::config::Config;

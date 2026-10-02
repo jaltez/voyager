@@ -1,5 +1,5 @@
 //! Per-provider politeness (ADR-0010, milestone M1.1): minimum request
-//! spacing — in-process and advisory across processes — plus retry with
+//! spacing (in-process and advisory across processes) plus retry with
 //! exponential backoff for retriable failures (429/5xx/connection errors).
 //! Anti-bot challenges such as DDG's HTTP 202 are deliberately not retried;
 //! spacing is what fixes them.

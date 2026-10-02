@@ -4,7 +4,7 @@ Version tags mark phase boundaries: `v0.1.0` = phase 0 scaffold,
 `v0.2.0` = phase 1 complete. Effort: S (< half day) · M (~a day) · L
 (multi-day).
 
-## Phase 0 — scaffold (done, 2026-10-01, `v0.1.0`)
+## Phase 0: scaffold (done, 2026-10-01, `v0.1.0`)
 
 - [x] Workspace: core / providers / llm / research / cli crates.
 - [x] Keyless search out of the box (ddgs) + brave + tavily behind env keys.
@@ -18,11 +18,11 @@ Version tags mark phase boundaries: `v0.1.0` = phase 0 scaffold,
       stdin queries, `vygr schema`, `vygr plan`, `vygr config`, `vygr init`.
 - [x] Agent skill `skills/vygr/SKILL.md`.
 
-## Phase 1 — search quality of life (done, `v0.2.0`)
+## Phase 1: search quality of life (done, `v0.2.0`)
 
 Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 
-### M1.1 Per-provider rate limiting and retry with backoff — effort M
+### M1.1 Per-provider rate limiting and retry with backoff (effort M)
 
 - [x] `VygrError::Provider` carries `status: Option<u16>`; helper
       `should_retry(&VygrError)` matches 429/5xx/connection errors.
@@ -37,7 +37,7 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
   minimum interval (visible with `-vv`); a mocked 429-then-success provider
   is recovered by the decorator (unit test).
 
-### M1.2 Disk cache with query-class TTLs — effort M
+### M1.2 Disk cache with query-class TTLs (effort M)
 
 - [x] `cache.rs`: `CachedSearchProvider` decorator; key =
       sha256(provider + normalized query + max_results + filters) stored at
@@ -53,7 +53,7 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
   (instant, `meta.cache.hits = 1`); corrupted cache entries are ignored and
   re-fetched.
 
-### M1.3 Query filters: time range and domains — effort S
+### M1.3 Query filters: time range and domains (effort S)
 
 - [x] `SearchQuery` gains `time_range` (day/week/month/year) and
       include/exclude domain lists.
@@ -65,19 +65,19 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - **Acceptance**: `--include-domains rust-lang.org` returns only that
   domain; per-provider param construction is unit-tested.
 
-### M1.4 Providers: searxng, exa, serper, jina, kagi — effort M/L
+### M1.4 Providers: searxng, exa, serper, jina, kagi (effort M/L)
 
 - [x] `ProviderConf` gains `base_url` (searxng self-hosted instances).
 - [x] One backend per provider + registry/aliases/env requirements:
       searxng (`format=json`, keyless, needs base_url), exa (`EXA_API_KEY`),
-      serper (`SERPER_API_KEY`), jina (`JINA_API_KEY`, markdown response —
+      serper (`SERPER_API_KEY`), jina (`JINA_API_KEY`, markdown response,
       tolerant parser), kagi (`KAGI_API_KEY`).
 - [x] `vygr providers` readiness includes searxng base_url detection;
       README/docs provider table updated.
 - **Acceptance**: `vygr providers` lists all 8 backends with their env var
   or base_url requirement; every parser has a fixture-based unit test.
 
-### M1.5 Structured extraction — effort M
+### M1.5 Structured extraction (effort M)
 
 - [x] Rewrite `HttpFetch::extract_html`: prefer `article` / `[role=main]` /
       `main`, drop nav/footer/aside/header/script/style/form, and walk
@@ -87,7 +87,7 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - **Acceptance**: `vygr extract <article-url>` produces readable structured
   markdown instead of one collapsed line.
 
-## Phase 2 — the full iterative loop (done, `v0.3.0`) — the full iterative loop
+## Phase 2: the full iterative loop (done, `v0.3.0`)
 
 - [x] Depth levels with breadth halving per level (GPT Researcher model).
 - [x] Reflection buffer: distilled notes feed the next iteration, not raw
@@ -99,14 +99,14 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - [x] `--output-schema` (JSON Schema-constrained answers).
 - [x] `HarnessLlm` passes the prompt via stdin instead of argv (ARG_MAX).
 
-## Phase 3 — MCP server (done, `v0.4.0`) — MCP server
+## Phase 3: MCP server (done, `v0.4.0`)
 
 - [x] `vygr serve`: stdio MCP server (rmcp) exposing `search`, `extract`,
       `research`, `get_results` (cursor-paged, size-capped like Librarium),
       `check_run`.
 - [x] Full evidence stays on disk; the MCP surface only pages summaries.
 
-## Phase 4 — distribution
+## Phase 4: distribution
 
 - [x] Release workflow builds linux/macOS x64/arm64 tarballs on tag push;
       `install.sh` prefers prebuilt binaries and falls back to cargo. Pushing
@@ -116,7 +116,7 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - [ ] Publish skill: `npx skills add <owner>/voyager` (needs a public repo).
 - [ ] `vygr init --agent <id>` covering more harnesses; detect running agent.
 
-## Phase 5 — fetch escalation
+## Phase 5: fetch escalation
 
 - [ ] Optional headless-browser fetch (chromiumoxide) for JS-heavy pages,
       behind a feature flag, only when plain HTTP fails.

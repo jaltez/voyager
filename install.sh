@@ -55,7 +55,7 @@ if [ -n "$TARGET" ] && command -v curl >/dev/null 2>&1; then
 fi
 
 if ! command -v cargo >/dev/null 2>&1; then
-    echo "error: cargo not found — install Rust from https://rustup.rs first" >&2
+    echo "error: cargo not found; install Rust from https://rustup.rs first" >&2
     exit 1
 fi
 echo "building vygr from source (cargo install)..."

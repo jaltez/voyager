@@ -5,7 +5,7 @@ Configurable deep-research CLI, written in Rust. Binary: **`vygr`**.
 Search the web through provider chains (keyless DuckDuckGo out of the box,
 plus Brave, Tavily, Exa, Serper, Jina and Kagi behind env keys, and
 self-hosted SearXNG), fetch and reduce pages to text, and run a
-full plan-search-synthesize research loop over any LLM backend — a
+full plan-search-synthesize research loop over any LLM backend: a
 models.dev provider, local Ollama, a custom OpenAI-compatible endpoint, or
 the LLM already configured in your agent harness (`--llm pi`, `--llm
 claude`, `--llm codex`). Every research run leaves a verifiable evidence
@@ -99,19 +99,19 @@ budget_usd = 0.50
 - **MCP**: `vygr serve` runs a stdio MCP server exposing `search`,
   `extract`, `research` and `get_artifact` (token-safe paged reads of run
   artifacts). Register with your harness, e.g.
-  `pi mcp add voyager -- vygr serve` — see
+  `pi mcp add voyager -- vygr serve`; see
   [ADR-0011](docs/decisions/0011-distribution-skill-and-mcp.md).
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — crates, traits, loop, config
+- [Architecture](docs/ARCHITECTURE.md): crates, traits, loop, config
   precedence, machine contract.
-- [Decisions](docs/decisions/) — 11 ADRs covering scope, provider
+- [Decisions](docs/decisions/): ADRs covering scope, provider
   abstraction, LLM backends, the research loop, budgets, the CLI contract,
   run artifacts, caching and distribution.
-- [Comparative analysis](docs/research/comparative-analysis.md) — what was
+- [Comparative analysis](docs/research/comparative-analysis.md): what was
   borrowed from tvly, GPT Researcher, hsearch, Web Forager and Librarium.
-- [Roadmap](docs/ROADMAP.md) — cache/TTL + more providers, iterative depth
+- [Roadmap](docs/ROADMAP.md): cache/TTL + more providers, iterative depth
   loop with reflections, MCP server, releases, browser escalation.
 
 ## Status

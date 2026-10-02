@@ -1,4 +1,4 @@
-# ADR 0009: Run artifacts — the evidence trail
+# ADR 0009: Run artifacts (the evidence trail)
 
 - **Date:** 2026-10-01
 - **Status:** Accepted
