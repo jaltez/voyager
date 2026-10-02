@@ -50,7 +50,7 @@ cargo install --path crates/cli --bin vygr  # from a checkout
 | `vygr models [provider]` | browse the models.dev catalog and pricing |
 | `vygr schema` | machine-readable self-description (for agents) |
 | `vygr config` | effective configuration + file paths |
-| `vygr init --agent pi` | install the agent skill (see below) |
+| `vygr init --agent pi\|omp\|opencode\|…` | install the agent skill (see below) |
 | `vygr cache dir\|clear` | inspect or clear the search cache |
 | `vygr serve` | MCP server over stdio (`search`, `extract`, `research`, `get_artifact`) |
 
@@ -92,7 +92,7 @@ budget_usd = 0.50
   ```
 
   or, from a checkout of this repo, with the bundled installer:
-  `vygr init --agent pi|claude-code|codex|cursor|generic [--project]`.
+  `vygr init --agent pi|claude-code|codex|cursor|omp|opencode|generic [--project]`.
 - **Reuse the harness LLM**: `vygr research … --llm pi` shells out to
   `pi --print` (likewise `claude -p`, `codex exec`), so the research loop
   uses the harness's configured model and credentials. No MCP pass-through.

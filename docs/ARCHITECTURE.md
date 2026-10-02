@@ -107,8 +107,9 @@ API keys are never written by vygr; providers read their own env vars
 ## Distribution (ADR-0011)
 
 - Single static binary via `cargo install` / GitHub releases.
-- Agent skill at `skills/vygr/SKILL.md`; `vygr init --agent pi`
-  installs it into the harness's skill directory.
+- Agent skill at `skills/vygr/SKILL.md`; `vygr init --agent <harness>`
+  (pi, claude-code, codex, cursor, omp, opencode, generic) installs it into
+  the harness's skills directory.
 - `npx skills add <owner>/voyager` once public (vercel-labs/skills registry).
 - **MCP server** (`vygr serve`, stdio): hand-rolled newline-delimited
   JSON-RPC 2.0 exposing `search`, `extract`, `research` and `get_artifact`
