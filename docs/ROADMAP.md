@@ -111,6 +111,8 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - [x] Release workflow builds linux/macOS x64/arm64 tarballs on tag push;
       `install.sh` prefers prebuilt binaries and falls back to cargo. Pushing
       a tag to GitHub is all that remains (needs the user's repo).
+- [ ] Add x86_64-unknown-linux-musl targets so release binaries are fully
+      static (glibc on older hosts emits weak-symbol warnings otherwise).
 - [ ] Publish skill: `npx skills add <owner>/voyager` (needs a public repo).
 - [ ] `vygr init --agent <id>` covering more harnesses; detect running agent.
 
