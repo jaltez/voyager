@@ -33,6 +33,7 @@ vygr research "q" --llm openrouter:deepseek/deepseek-chat
 
 ```sh
 cargo install vygr                          # from crates.io (installs the vygr binary)
+                                            # workspace crates: vygr-core, vygr-providers, vygr-llm, vygr-research
 ./install.sh                                # prebuilt from GitHub releases
 cargo install --path crates/cli --bin vygr  # from a checkout
 ```
