@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use futures::future::join_all;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use vygr_core::provider::{FetchProvider, SearchQuery};
 use vygr_core::types::SearchResult;
 use vygr_core::VygrError;
@@ -66,7 +66,7 @@ pub struct ResearchRequest {
     pub output_schema: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Source {
     pub title: String,
     pub url: String,
@@ -112,7 +112,7 @@ pub struct ResearchReport {
     pub llm: String,
 }
 
-const SYNTHESIS_SYSTEM: &str = "You are a senior research analyst. Write a focused markdown report answering the question. \
+pub(crate) const SYNTHESIS_SYSTEM: &str = "You are a senior research analyst. Write a focused markdown report answering the question. \
 Cite sources inline with bracketed numbers like [1] referring only to the numbered evidence blocks provided. \
 Prefer primary sources. Use the research notes as guidance but verify claims against the evidence blocks. \
 If evidence blocks disagree, reconcile the disagreement explicitly instead of \
@@ -486,6 +486,20 @@ returning a degraded report built from the gathered evidence",
     if let Some(answer) = &answer {
         let _ = run_dir::write_file(&dir, "answer.md", answer);
     }
+    let _ = run_dir::write_file(
+        &dir,
+        "run.json",
+        &serde_json::to_string(&crate::runs::RunManifest {
+            query: req.query.clone(),
+            depth_used,
+            iterations: iterations_done,
+            subqueries: initial_queries.clone(),
+            reflections: reflections.clone(),
+            provider_spec: req.provider_spec.clone(),
+            llm: llm_desc.clone(),
+        })
+        .unwrap_or_default(),
+    );
 
     Ok(ResearchReport {
         query: req.query,
@@ -586,6 +600,10 @@ validating against this JSON Schema:\n",
 
 /// Numbered evidence blocks bounded by `max_chars` (citations map to
 /// `sources.json` order).
+pub(crate) fn assemble_context_public(sources: &[Source], max_chars: usize) -> String {
+    assemble_context(sources, max_chars)
+}
+
 fn assemble_context(sources: &[Source], max_chars: usize) -> String {
     let mut context = String::new();
     let mut used = 0usize;

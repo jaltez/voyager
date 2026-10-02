@@ -54,6 +54,8 @@ enum Commands {
     Serve,
     /// Self-update from crates.io (`--check` only reports)
     Update(commands::update::Args),
+    /// Inspect past research runs; re-synthesize offline
+    Runs(commands::runs::Args),
 }
 
 #[tokio::main]
@@ -76,6 +78,7 @@ async fn main() {
         Commands::Cache(args) => commands::cache::run(args),
         Commands::Serve => mcp::serve(http).await,
         Commands::Update(args) => commands::update::run(args, http).await,
+        Commands::Runs(args) => commands::runs::run(args, http, &cfg).await,
     };
 
     if let Err(e) = result {

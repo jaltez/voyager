@@ -8,6 +8,7 @@ pub mod models;
 pub mod plan;
 pub mod providers;
 pub mod research;
+pub mod runs;
 pub mod schema;
 pub mod search;
 pub mod update;
