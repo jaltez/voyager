@@ -23,7 +23,7 @@ cli -> research -> { providers, llm } -> core
 - **vygr-providers** — search backends, fetcher, chain/fan-out combinators.
 - **vygr-llm** — `LlmClient` trait + backends + models.dev catalog.
 - **vygr-research** — planner, scoring, orchestrator, run artifacts.
-- **vygr-cli** — the `vygr` binary; the only crate that knows clap.
+- **vygr** (in `crates/cli/`) — the `vygr` binary; the only crate that knows clap. Published to crates.io as `vygr`.
 
 Alternatives rejected: a single crate (no seams, slow incremental builds) and
 separate repos (cross-cutting trait changes would need version churn).
