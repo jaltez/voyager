@@ -110,21 +110,26 @@ pub async fn resolve(
     };
 
     match backend.as_str() {
-        // pi and claude document piped-stdin prompts; codex takes argv.
+        // Structured channels where the harness offers one: claude's JSON
+        // envelope (carrying real cost), codex's last-message file; pi
+        // answers on plain stdout.
         "pi" => Ok(Box::new(harness::HarnessLlm::new(
             "pi",
             &["--print"],
-            harness::PromptChannel::Stdin,
+            harness::PromptChannel::Stdin(harness::STDIN_TASK),
+            harness::OutputMode::Plain,
         ))),
         "claude" => Ok(Box::new(harness::HarnessLlm::new(
             "claude",
-            &["-p"],
-            harness::PromptChannel::Stdin,
+            &["-p", "--output-format", "json"],
+            harness::PromptChannel::Stdin(harness::STDIN_TASK),
+            harness::OutputMode::ClaudeJson,
         ))),
         "codex" => Ok(Box::new(harness::HarnessLlm::new(
             "codex",
             &["exec"],
-            harness::PromptChannel::Arg,
+            harness::PromptChannel::Stdin("-"),
+            harness::OutputMode::CodexLastMessage,
         ))),
         "ollama" => {
             let model = spec_model.or_else(|| cfg.model.clone()).ok_or_else(|| {
