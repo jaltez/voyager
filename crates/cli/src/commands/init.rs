@@ -47,7 +47,7 @@ pub fn run(args: Args) -> Result<(), VygrError> {
     fs::write(dir.join("SKILL.md"), SKILL_MD).map_err(VygrError::Io)?;
     println!("installed skill: {}", dir.join("SKILL.md").display());
     eprintln!(
-        "vygr: once this repo is public, `npx skills add javieraltez/voyager` installs it across agents"
+        "vygr: once this repo is public, `npx skills add jaltez/voyager` installs it across agents"
     );
     Ok(())
 }

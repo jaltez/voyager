@@ -8,7 +8,7 @@
 
 set -eu
 
-REPO="${VYGR_REPO:-javieraltez/voyager}"
+REPO="${VYGR_REPO:-jaltez/voyager}"
 VERSION="${VYGR_VERSION:-latest}"
 PREFIX="${VYGR_PREFIX:-$HOME/.local}"
 

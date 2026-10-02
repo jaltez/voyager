@@ -17,7 +17,7 @@ Search the web through provider chains (ddgs keyless, brave, tavily), run full \
 deep-research loops over any LLM backend (models.dev providers, Ollama, or the \
 LLM already configured in a harness like pi), and leave a complete evidence \
 trail on disk.\n\n\
-Docs: https://github.com/javieraltez/voyager"
+Docs: https://github.com/jaltez/voyager"
 )]
 struct Cli {
     /// Increase log verbosity: -v info, -vv debug (logs go to stderr)

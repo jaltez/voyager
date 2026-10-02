@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["Javier Altez"]
-repository = "https://github.com/javieraltez/voyager"
+repository = "https://github.com/jaltez/voyager"
 description = "Configurable deep research CLI with pluggable search providers and LLM backends"
 
 [workspace.dependencies]
