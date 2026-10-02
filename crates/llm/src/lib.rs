@@ -80,6 +80,14 @@ pub trait LlmClient: Send + Sync {
     async fn complete(&self, req: &CompletionRequest) -> Result<CompletionResponse, VygrError>;
     /// Human-readable one-liner for logs and reports.
     fn describe(&self) -> String;
+
+    /// Upper-bound cost estimate for a call of roughly `prompt_chars`
+    /// with `max_tokens` of generation, when the backend knows its price
+    /// table. Budget guards call this before committing to a call.
+    fn estimate_cost_usd(&self, prompt_chars: usize, max_tokens: Option<u32>) -> Option<f64> {
+        let _ = (prompt_chars, max_tokens);
+        None
+    }
 }
 
 /// Resolve an LLM backend from a spec string and the file configuration.

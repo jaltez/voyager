@@ -182,6 +182,13 @@ impl LlmClient for OpenAiCompatible {
     fn describe(&self) -> String {
         format!("openai-compatible {} ({})", self.model, self.base_url)
     }
+
+    fn estimate_cost_usd(&self, prompt_chars: usize, max_tokens: Option<u32>) -> Option<f64> {
+        let cost = self.cost.as_ref()?;
+        let input_tokens = prompt_chars as f64 / 3.0;
+        let output_tokens = max_tokens.unwrap_or(0) as f64;
+        Some((input_tokens * cost.input + output_tokens * cost.output) / 1_000_000.0)
+    }
 }
 
 /// Answer text extraction: `content` is authoritative; when it comes back

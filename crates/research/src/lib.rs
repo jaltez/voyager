@@ -6,6 +6,8 @@ mod orchestrator;
 mod planner;
 mod run_dir;
 mod score;
+mod verify;
 
 pub use orchestrator::{run, DepthSpec, ProgressSink, ResearchReport, ResearchRequest};
 pub use run_dir::create_run_dir;
+pub use verify::{verify, Verification};

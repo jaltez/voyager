@@ -95,10 +95,17 @@ pub struct ResearchReport {
     /// Distilled notes accumulated across reflection passes.
     pub reflections: Vec<String>,
     pub budget_exhausted: bool,
+    /// The answer is a deterministic degraded report (budget would not
+    /// cover synthesis), not an LLM synthesis.
+    pub degraded: bool,
     /// Whether the synthesized answer parsed as JSON when an output
     /// schema was requested; `None` when no schema was given.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schema_valid: Option<bool>,
+    /// Citation verification against the stored sources; `None` when no
+    /// synthesis ran.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification: Option<crate::verify::Verification>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cost_usd: Option<f64>,
     pub llm: String,
@@ -374,19 +381,60 @@ pub async fn run(
     let sources_json = serde_json::to_string_pretty(&sources).unwrap_or_default();
     let _ = run_dir::write_file(&dir, "sources.json", &sources_json);
 
-    // 4) Budget guard before the expensive call (ADR-0007).
+    // 4) Abstain rather than fabricate when there is no usable evidence
+    // at all (GPTR lesson): every fetch failed and no snippet survived.
+    let has_evidence = sources.iter().any(|s| {
+        s.content.as_deref().is_some_and(|c| !c.trim().is_empty()) || !s.snippet.trim().is_empty()
+    });
+    if !has_evidence {
+        warnings.push(
+            "no usable evidence was gathered (every fetch failed and snippets are empty); \
+abstaining from synthesis instead of fabricating"
+                .to_string(),
+        );
+        return Ok(ResearchReport {
+            query: req.query,
+            depth_used,
+            iterations: iterations_done,
+            subqueries: initial_queries,
+            sources,
+            answer: None,
+            run_dir: Some(dir.display().to_string()),
+            warnings,
+            reflections,
+            budget_exhausted,
+            degraded: false,
+            schema_valid: None,
+            verification: None,
+            cost_usd: if tracked { Some(spent) } else { None },
+            llm: llm_desc,
+        });
+    }
+
+    // 5) Budget guard before the expensive call (ADR-0007), now with an
+    // upper-bound estimate so the guard trips before spending, not after.
     report(format!(
         "synthesizing report from {} sources",
         sources.len()
     ));
+    let estimate = llm.estimate_cost_usd(req.context_max_chars, Some(4_096));
     let mut schema_valid: Option<bool> = None;
-    let answer = if over_budget(spent, tracked) {
+    let mut verification_value: Option<crate::verify::Verification> = None;
+    let mut degraded = false;
+    let answer = if tracked
+        && req
+            .budget_usd
+            .is_some_and(|b| spent + estimate.unwrap_or(0.0) > b)
+    {
         budget_exhausted = true;
+        degraded = true;
         warnings.push(format!(
-            "budget ${:.2} exhausted before synthesis (spent {spent:.2}); returning sources only",
-            req.budget_usd.unwrap_or(0.0)
+            "budget ${:.2} would be exceeded by synthesis (spent {spent:.2}, estimated upper bound {:.2}); \
+returning a degraded report built from the gathered evidence",
+            req.budget_usd.unwrap_or(0.0),
+            estimate.unwrap_or(0.0)
         ));
-        None
+        Some(degraded_answer(&req.query, &reflections, &sources))
     } else {
         match synthesize(&*llm, &req, &initial_queries, &reflections, &sources).await {
             Ok((content, cost)) => {
@@ -394,7 +442,7 @@ pub async fn run(
                     spent += c;
                     tracked = true;
                 }
-                let answer = content.trim().to_string();
+                let mut answer = content.trim().to_string();
                 if req.output_schema.is_some() {
                     let valid = planner::parse_json_object::<serde_json::Value>(&answer).is_ok();
                     if !valid {
@@ -406,6 +454,22 @@ pub async fn run(
                     }
                     schema_valid = Some(valid);
                 }
+                // 6) Verify citations against the stored evidence and flag
+                // weakly supported claims (Mole-inspired).
+                let verification = crate::verify::verify(&answer, &sources);
+                report(format!(
+                    "verification: {} cited sentences checked, {} weakly supported",
+                    verification.checked,
+                    verification.weak.len()
+                ));
+                if !verification.is_clean() {
+                    warnings.push(format!(
+                        "{} weakly supported citation(s); see the verification section of answer.md",
+                        verification.weak.len()
+                    ));
+                    answer.push_str(&crate::verify::verification_section(&verification));
+                }
+                verification_value = Some(verification);
                 let _ = run_dir::write_file(&dir, "answer.md", &answer);
                 Some(answer)
             }
@@ -415,6 +479,9 @@ pub async fn run(
             }
         }
     };
+    if let Some(answer) = &answer {
+        let _ = run_dir::write_file(&dir, "answer.md", answer);
+    }
 
     Ok(ResearchReport {
         query: req.query,
@@ -427,10 +494,39 @@ pub async fn run(
         warnings,
         reflections,
         budget_exhausted,
+        degraded,
         schema_valid,
+        verification: verification_value,
         cost_usd: if tracked { Some(spent) } else { None },
         llm: llm_desc,
     })
+}
+
+/// Deterministic degraded report when the budget will not cover
+/// synthesis: research notes and ranked sources, no LLM involved.
+fn degraded_answer(query: &str, reflections: &[String], sources: &[Source]) -> String {
+    let mut out = String::from("# Research report (degraded)\n\n");
+    out.push_str(&format!("**Question:** {query}\n\n"));
+    out.push_str("The synthesis budget was exhausted, so this report is built ");
+    out.push_str("deterministically from the gathered evidence and research notes.\n");
+    if !reflections.is_empty() {
+        out.push_str("\n## Research notes\n\n");
+        for note in reflections {
+            out.push_str(&format!("- {note}\n"));
+        }
+    }
+    out.push_str("\n## Sources (ranked)\n\n");
+    for (i, s) in sources.iter().take(15).enumerate() {
+        out.push_str(&format!(
+            "{}. [{}] {} ({})\n",
+            i + 1,
+            s.provider,
+            s.title,
+            s.url
+        ));
+    }
+    out.push_str("\nRe-run with a higher `--budget-usd` for a synthesized analysis.\n");
+    out
 }
 
 /// One synthesis call over the bounded, ranked context.

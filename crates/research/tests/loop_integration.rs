@@ -30,7 +30,7 @@ impl LlmClient for ScriptedLlm {
         let content = match n {
             0 => PLAN_JSON.to_string(),
             1 => REFLECT_JSON.to_string(),
-            _ => "Final answer citing [1] and [2].".to_string(),
+            _ => "rust webassembly benchmark numbers support the comparison [1]. zig webassembly notes complete the picture [2].".to_string(),
         };
         let cost = self.costs.get(n as usize).copied();
         Ok(CompletionResponse {
@@ -172,15 +172,28 @@ async fn full_loop_runs_two_levels_with_reflection_and_cost() {
         costs: [0.01, 0.02, 0.04],
     });
     let counter = Arc::clone(&scripted);
+    let events = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let sink_events = Arc::clone(&events);
+    let progress: vygr_research::ProgressSink = Arc::new(move |msg: &str| {
+        sink_events.lock().unwrap().push(msg.to_string());
+    });
 
     let report = run(
         request(port, &tmp),
         Box::new(OwnedLlm(Arc::clone(&scripted))),
         reqwest::Client::new(),
-        None,
+        Some(progress),
     )
     .await
     .unwrap();
+
+    // Progress fired for plan, level, reflection, synthesis.
+    let events = events.lock().unwrap();
+    assert!(events.iter().any(|e| e.starts_with("plan ready")));
+    assert!(events.iter().any(|e| e.starts_with("level 1/2")));
+    assert!(events.iter().any(|e| e.starts_with("reflection:")));
+    assert!(events.iter().any(|e| e.starts_with("synthesizing")));
+    assert!(events.iter().any(|e| e.starts_with("verification:")));
 
     // Planner + reflection + synthesis all ran; costs accumulated.
     assert_eq!(counter.calls.load(Ordering::SeqCst), 3);
@@ -191,10 +204,19 @@ async fn full_loop_runs_two_levels_with_reflection_and_cost() {
         report.reflections[0],
         "benchmark numbers differ across engines"
     );
-    assert!(report.answer.as_deref().unwrap().contains("Final answer"));
+    assert!(report
+        .answer
+        .as_deref()
+        .unwrap()
+        .contains("benchmark numbers"));
     assert_eq!(report.cost_usd, Some(0.07));
     assert!(!report.budget_exhausted);
+    assert!(!report.degraded);
     assert!(report.schema_valid.is_none());
+    // The scripted answer cites real source vocabulary: clean check.
+    let verification = report.verification.as_ref().unwrap();
+    assert!(verification.checked >= 2);
+    assert!(verification.weak.is_empty());
     // Level 1 sources recorded their level.
     assert!(report.sources.iter().any(|s| s.level == 1));
     // Artifacts landed in the run directory.
@@ -234,7 +256,11 @@ async fn budget_exhaustion_skips_synthesis_but_keeps_sources() {
     .unwrap();
 
     assert!(report.budget_exhausted);
-    assert!(report.answer.is_none());
+    // Degraded deterministic report instead of no answer at all.
+    assert!(report.degraded);
+    let answer = report.answer.as_deref().unwrap();
+    assert!(answer.contains("(degraded)"));
     assert!(!report.sources.is_empty());
     assert_eq!(report.cost_usd, Some(10.0));
+    assert!(report.verification.is_none());
 }
