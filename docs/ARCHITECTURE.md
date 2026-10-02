@@ -14,7 +14,7 @@ voyager/
 │   ├── llm/         vygr-llm        LlmClient trait, OpenAI-compat, models.dev, harness
 │   ├── research/    vygr-research   planner, scoring, orchestrator, run artifacts
 │   └── cli/         vygr (binary)   command surface, output rendering, exit codes
-├── skills/deep-research/SKILL.md    agent skill shipped with the repo
+├── skills/vygr/SKILL.md    agent skill shipped with the repo
 └── docs/            ADRs, roadmap, background research
 ```
 
@@ -107,7 +107,7 @@ API keys are never written by vygr; providers read their own env vars
 ## Distribution (ADR-0011)
 
 - Single static binary via `cargo install` / GitHub releases.
-- Agent skill at `skills/deep-research/SKILL.md`; `vygr init --agent pi`
+- Agent skill at `skills/vygr/SKILL.md`; `vygr init --agent pi`
   installs it into the harness's skill directory.
 - `npx skills add <owner>/voyager` once public (vercel-labs/skills registry).
 - **MCP server** (`vygr serve`, stdio): hand-rolled newline-delimited

@@ -1,5 +1,5 @@
 ---
-name: voyager-deep-research
+name: vygr
 description: Deep, multi-source web research using the vygr CLI (voyager). Use when a task needs exhaustive, well-cited investigation of a topic — comparing options, mapping a technology or market landscape, or fact-finding that benefits from multiple independent sources — rather than a single quick lookup.
 license: MIT
 ---

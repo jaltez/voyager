@@ -16,7 +16,7 @@ Version tags mark phase boundaries: `v0.1.0` = phase 0 scaffold,
       artifacts on disk and a coarse budget guard.
 - [x] CLI machine contract: `--format json`, stderr diagnostics, exit codes,
       stdin queries, `vygr schema`, `vygr plan`, `vygr config`, `vygr init`.
-- [x] Agent skill `skills/deep-research/SKILL.md`.
+- [x] Agent skill `skills/vygr/SKILL.md`.
 
 ## Phase 1 — search quality of life (done, `v0.2.0`)
 

@@ -18,7 +18,7 @@ provide itself.
 
 1. **Binary first**: static `vygr` via cargo / release assets. No runtime,
    no daemon.
-2. **Skill**: `skills/deep-research/SKILL.md` (agentskills.io format) that
+2. **Skill**: `skills/vygr/SKILL.md` (agentskills.io format) that
    teaches agents the command surface, the LLM-spec grammar and the research
    methodology. `vygr init --agent pi|claude-code|codex|cursor|generic
    [--project]` embeds and installs it. Once public:

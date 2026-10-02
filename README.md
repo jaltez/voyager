@@ -82,7 +82,7 @@ budget_usd = 0.50
 
 ## Agent harness integration
 
-- **Skill**: [skills/deep-research/SKILL.md](skills/deep-research/SKILL.md)
+- **Skill**: [skills/vygr/SKILL.md](skills/vygr/SKILL.md)
   follows the agentskills.io format. Install it with
   `vygr init --agent pi|claude-code|codex|cursor|generic [--project]`, or —
   once this repo is public — `npx skills add <owner>/voyager`.

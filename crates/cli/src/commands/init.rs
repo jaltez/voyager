@@ -8,7 +8,7 @@ use clap::Args as ClapArgs;
 use vygr_core::VygrError;
 
 /// Canonical skill file, packaged with the crate. The copy at
-/// `skills/deep-research/SKILL.md` in the repository exists for the
+/// `skills/vygr/SKILL.md` in the repository exists for the
 /// `npx skills` ecosystem; a drift test in this crate keeps them equal.
 const SKILL_MD: &str = include_str!("../../skill/SKILL.md");
 
@@ -44,7 +44,7 @@ pub fn run(args: Args) -> Result<(), VygrError> {
             Agent::Pi | Agent::Codex | Agent::Generic => home.join(".agents").join("skills"),
         }
     };
-    let dir = base.join("voyager-deep-research");
+    let dir = base.join("vygr");
 
     fs::create_dir_all(&dir).map_err(VygrError::Io)?;
     fs::write(dir.join("SKILL.md"), SKILL_MD).map_err(VygrError::Io)?;
@@ -62,14 +62,14 @@ mod tests {
     /// repository root is not present (e.g. the published crate).
     #[test]
     fn root_skill_copy_matches_packaged_canonical() {
-        let root_copy = PathBuf::from("../../skills/deep-research/SKILL.md");
+        let root_copy = PathBuf::from("../../skills/vygr/SKILL.md");
         if !root_copy.exists() {
             return;
         }
         let on_disk = fs::read_to_string(&root_copy).unwrap();
         assert_eq!(
             on_disk, SKILL_MD,
-            "skills/deep-research/SKILL.md drifted from crates/cli/skill/SKILL.md"
+            "skills/vygr/SKILL.md drifted from crates/cli/skill/SKILL.md"
         );
     }
 }
