@@ -86,6 +86,7 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
         exclude_domains: vygr_core::provider::normalize_domains(
             cfg.research.exclude_domains.clone(),
         ),
+        language: cfg.research.language.clone(),
         output_schema: match &args.output_schema {
             Some(path) => Some(load_schema(path)?),
             None => None,

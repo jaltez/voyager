@@ -1,0 +1,16 @@
+{
+  "total": 2,
+  "data": [
+    {
+      "paperId": "p1",
+      "title": "Retrieval augmented generation survey",
+      "url": "https://www.semanticscholar.org/paper/1",
+      "abstract": "A survey of retrieval augmented generation methods and evaluation."
+    },
+    {
+      "paperId": "p2",
+      "title": "Paper lacking abstract",
+      "url": "https://www.semanticscholar.org/paper/2"
+    }
+  ]
+}

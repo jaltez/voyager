@@ -1,0 +1,24 @@
+{
+  "meta": { "count": 2, "db_response_time_ms": 12 },
+  "results": [
+    {
+      "id": "W1",
+      "display_name": "Foraging signals for search agents",
+      "doi": "https://doi.org/10.1000/fake",
+      "abstract_inverted_index": {
+        "Web": [0],
+        "search": [1],
+        "agents": [2],
+        "benefit": [3],
+        "from": [4],
+        "foraging": [5],
+        "signals": [6]
+      }
+    },
+    {
+      "id": "W2",
+      "display_name": "A paper without abstract",
+      "doi": "https://doi.org/10.1000/none"
+    }
+  ]
+}

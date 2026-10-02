@@ -9,7 +9,9 @@ mod exa;
 mod fetch;
 mod jina;
 mod kagi;
+mod openalex;
 mod searxng;
+mod semanticscholar;
 mod serper;
 mod tavily;
 mod throttle;
@@ -44,6 +46,8 @@ pub fn canonical(id: &str) -> Option<&'static str> {
         "serper" | "serperdev" => Some("serper"),
         "jina" | "s-jina" => Some("jina"),
         "kagi" => Some("kagi"),
+        "openalex" => Some("openalex"),
+        "s2" | "semantic" | "semanticscholar" => Some("s2"),
         _ => None,
     }
 }
@@ -58,6 +62,7 @@ pub fn env_requirement(id: &str) -> Option<&'static str> {
         "serper" => Some("SERPER_API_KEY"),
         "jina" => Some("JINA_API_KEY"),
         "kagi" => Some("KAGI_API_KEY"),
+        "s2" => Some("S2_API_KEY"),
         _ => None,
     }
 }
@@ -100,6 +105,8 @@ pub fn build_chain(
                 Some("serper") => Box::new(serper::SerperSearch::new(http.clone())),
                 Some("jina") => Box::new(jina::JinaSearch::new(http.clone())),
                 Some("kagi") => Box::new(kagi::KagiSearch::new(http.clone())),
+                Some("openalex") => Box::new(openalex::OpenAlexSearch::new(http.clone())),
+                Some("s2") => Box::new(semanticscholar::SemanticScholarSearch::new(http.clone())),
                 Some("searxng") => {
                     let configured = stack
                         .providers

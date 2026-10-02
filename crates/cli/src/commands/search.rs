@@ -52,6 +52,10 @@ pub struct Args {
     /// Comma-separated domain blocklist
     #[arg(long)]
     pub exclude_domains: Option<String>,
+
+    /// Result-language hint (ISO code, e.g. es, en) where supported
+    #[arg(long)]
+    pub language: Option<String>,
 }
 
 pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), VygrError> {
@@ -82,14 +86,16 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
     };
     let stack = vygr_core::config::SearchStackConf::from_config(cfg);
     let handle = vygr_providers::build_chain(&chain_spec, http.clone(), &stack, &cache_opts)?;
-    let q = SearchQuery::new(query.clone(), args.max_results).with_filters(
-        match args.time_range.as_deref() {
-            Some(s) => Some(vygr_core::provider::TimeRange::parse(s)?),
-            None => None,
-        },
-        parse_domain_list(args.include_domains.as_deref()),
-        parse_domain_list(args.exclude_domains.as_deref()),
-    );
+    let q = SearchQuery::new(query.clone(), args.max_results)
+        .with_filters(
+            match args.time_range.as_deref() {
+                Some(s) => Some(vygr_core::provider::TimeRange::parse(s)?),
+                None => None,
+            },
+            parse_domain_list(args.include_domains.as_deref()),
+            parse_domain_list(args.exclude_domains.as_deref()),
+        )
+        .with_language(args.language.clone());
     let (mut results, warnings) = if args.all {
         vygr_providers::search_all(&handle.providers, &q).await
     } else {

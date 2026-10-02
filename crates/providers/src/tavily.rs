@@ -88,6 +88,9 @@ fn request_body(q: &SearchQuery) -> serde_json::Value {
     if let Some(range) = q.time_range {
         body["time_range"] = serde_json::json!(range.tavily_param());
     }
+    if let Some(language) = &q.language {
+        body["language"] = serde_json::json!(language);
+    }
     body
 }
 
@@ -115,11 +118,12 @@ mod tests {
         assert!(plain.get("time_range").is_none());
         assert_eq!(plain["query"], "rust");
 
-        let fresh = request_body(&SearchQuery::new("rust", 5).with_filters(
-            Some(TimeRange::Week),
-            vec![],
-            vec![],
-        ));
+        let fresh = request_body(
+            &SearchQuery::new("rust", 5)
+                .with_filters(Some(TimeRange::Week), vec![], vec![])
+                .with_language(Some("es".to_string())),
+        );
         assert_eq!(fresh["time_range"], "week");
+        assert_eq!(fresh["language"], "es");
     }
 }

@@ -160,13 +160,14 @@ impl CachedSearchProvider {
     fn entry_path(&self, query: &SearchQuery) -> Option<PathBuf> {
         let dir = self.dir.as_ref()?;
         let fingerprint = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}",
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}",
             self.inner.id(),
             normalize_query(&query.query),
             query.max_results,
             query.time_range.map(|t| t.ddg_param()).unwrap_or_default(),
             query.include_domains.join(","),
             query.exclude_domains.join(","),
+            query.language.clone().unwrap_or_default(),
         );
         let mut hasher = Sha256::new();
         hasher.update(fingerprint.as_bytes());

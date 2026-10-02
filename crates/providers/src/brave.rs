@@ -42,6 +42,9 @@ impl SearchProvider for BraveSearch {
         if let Some(range) = q.time_range {
             params.push(("freshness", range.brave_param().to_string()));
         }
+        if let Some(language) = &q.language {
+            params.push(("search_lang", language.clone()));
+        }
         let resp = self
             .http
             .get(ENDPOINT)

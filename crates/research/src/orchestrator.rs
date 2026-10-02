@@ -60,6 +60,7 @@ pub struct ResearchRequest {
     pub time_range: Option<vygr_core::provider::TimeRange>,
     pub include_domains: Vec<String>,
     pub exclude_domains: Vec<String>,
+    pub language: Option<String>,
     /// Raw JSON Schema the synthesized answer must satisfy (M2.5). When
     /// set, the answer is requested as JSON and validated (parse-level).
     pub output_schema: Option<String>,
@@ -208,11 +209,13 @@ pub async fn run(
         // 2a) Search this level's sub-queries.
         let mut level_results: Vec<SearchResult> = Vec::new();
         for sq in &queries {
-            let q = SearchQuery::new(sq.clone(), req.max_results_per_query).with_filters(
-                req.time_range,
-                req.include_domains.clone(),
-                req.exclude_domains.clone(),
-            );
+            let q = SearchQuery::new(sq.clone(), req.max_results_per_query)
+                .with_filters(
+                    req.time_range,
+                    req.include_domains.clone(),
+                    req.exclude_domains.clone(),
+                )
+                .with_language(req.language.clone());
             let (rs, w) = vygr_providers::search_chain(&handle.providers, &q).await;
             warnings.extend(w);
             level_results.extend(rs);

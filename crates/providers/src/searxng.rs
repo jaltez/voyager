@@ -55,6 +55,10 @@ impl SearchProvider for SearxngSearch {
             url.push_str("&time_range=");
             url.push_str(range.tavily_param());
         }
+        if let Some(language) = &q.language {
+            url.push_str("&language=");
+            url.push_str(language);
+        }
         let resp = self
             .http
             .get(&url)

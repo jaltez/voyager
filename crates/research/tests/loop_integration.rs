@@ -159,6 +159,7 @@ fn request(port: u16, tmp: &tempfile::TempDir) -> ResearchRequest {
         time_range: None,
         include_domains: vec![],
         exclude_domains: vec![],
+        language: None,
         output_schema: None,
     }
 }

@@ -272,6 +272,7 @@ async fn call_tool(
                 time_range: None,
                 include_domains: vec![],
                 exclude_domains: vec![],
+                language: None,
                 output_schema: None,
             };
             // Progress as notifications/progress: pi's MCP client kills

@@ -71,6 +71,9 @@ pub struct SearchQuery {
     pub include_domains: Vec<String>,
     /// Domain blocklist.
     pub exclude_domains: Vec<String>,
+    /// Result-language hint (ISO code like "es" or "en"); providers
+    /// without native support ignore it.
+    pub language: Option<String>,
 }
 
 impl SearchQuery {
@@ -81,6 +84,7 @@ impl SearchQuery {
             time_range: None,
             include_domains: Vec::new(),
             exclude_domains: Vec::new(),
+            language: None,
         }
     }
 
@@ -94,6 +98,14 @@ impl SearchQuery {
         self.time_range = time_range;
         self.include_domains = normalize_domains(include_domains);
         self.exclude_domains = normalize_domains(exclude_domains);
+        self
+    }
+
+    /// Attach a result-language hint (ISO code).
+    pub fn with_language(mut self, language: Option<String>) -> Self {
+        self.language = language
+            .map(|l| l.trim().to_lowercase())
+            .filter(|l| !l.is_empty());
         self
     }
 }

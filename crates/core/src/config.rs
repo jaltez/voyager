@@ -63,6 +63,8 @@ pub struct ResearchConf {
     /// Domain allowlist/blocklist applied to every research search.
     pub include_domains: Vec<String>,
     pub exclude_domains: Vec<String>,
+    /// Result-language hint (ISO code) applied to every research search.
+    pub language: Option<String>,
 }
 
 impl Default for ResearchConf {
@@ -79,6 +81,7 @@ impl Default for ResearchConf {
             time_range: None,
             include_domains: Vec::new(),
             exclude_domains: Vec::new(),
+            language: None,
         }
     }
 }
