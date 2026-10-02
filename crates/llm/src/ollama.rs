@@ -44,6 +44,10 @@ struct Options {
     temperature: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     num_predict: Option<u32>,
+    /// Context window. Ollama defaults to a small `num_ctx` (~4k tokens)
+    /// and silently truncates prompts from the left, which derails
+    /// synthesis on research-sized prompts — size it from the prompt.
+    num_ctx: u32,
 }
 
 #[derive(Serialize)]
@@ -80,6 +84,7 @@ fn role_str(role: Role) -> &'static str {
 
 /// Request body construction is pure for tests.
 fn build_body(model: &str, req: &CompletionRequest) -> ReqBody {
+    let prompt_chars: usize = req.messages.iter().map(|m| m.content.len()).sum();
     ReqBody {
         model: model.to_string(),
         messages: req
@@ -96,8 +101,16 @@ fn build_body(model: &str, req: &CompletionRequest) -> ReqBody {
         options: Options {
             temperature: req.temperature,
             num_predict: req.max_tokens,
+            num_ctx: context_budget(prompt_chars, req.max_tokens),
         },
     }
+}
+
+/// Rough context window for a call: ~3 chars per token, 50% headroom,
+/// clamped to sensible Ollama bounds.
+fn context_budget(prompt_chars: usize, max_tokens: Option<u32>) -> u32 {
+    let estimated = (prompt_chars / 3) as u32 + max_tokens.unwrap_or(0);
+    (estimated + estimated / 2).clamp(4_096, 65_536)
 }
 
 #[async_trait]
@@ -173,9 +186,20 @@ mod tests {
         assert_eq!(body.options.num_predict, Some(500));
         assert_eq!(body.messages.len(), 1);
         assert_eq!(body.messages[0].role, "user");
+        // A tiny prompt still requests at least the minimum window.
+        assert_eq!(body.options.num_ctx, 4_096);
 
         let plain = build_body("m", &CompletionRequest::default());
         assert!(plain.format.is_none());
+    }
+
+    #[test]
+    fn context_budget_scales_with_prompt() {
+        // ~24k chars (research context) + 4k output tokens → ~18k window.
+        let big = context_budget(24_000, Some(4_096));
+        assert!((16_000..=20_000).contains(&big), "got {big}");
+        assert_eq!(context_budget(10, None), 4_096);
+        assert_eq!(context_budget(1_000_000, None), 65_536);
     }
 
     #[test]
