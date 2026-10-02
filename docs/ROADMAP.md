@@ -121,3 +121,29 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - [ ] Optional headless-browser fetch (chromiumoxide) for JS-heavy pages,
       behind a feature flag, only when plain HTTP fails.
 - [ ] PDF/DOCX report export.
+
+## Phase 6: quality and reliability pass (done, `v0.5.0`, ADR-0015)
+
+- [x] Progress events (CLI stderr + MCP notifications/progress; fixes
+      pi's 60s MCP request timeout on long research calls)
+- [x] Citation verification against stored sources (weak claims flagged);
+      abstention when no usable evidence; degraded deterministic report
+      on exhausted budgets; pre-call cost estimates
+- [x] Fetch escalation ladder (Jina reader for thin/JS pages) and PDF
+      text extraction
+- [x] Structured harness output: claude JSON envelope with total_cost_usd,
+      codex --output-last-message
+- [x] Academic keyless providers (OpenAlex, Semantic Scholar) and a
+      result-language filter
+- [x] Provider circuit breaker (3 outage failures -> 60s skip)
+- [x] run.json manifests and vygr runs list|show|resume with offline
+      re-synthesis
+
+## Deferred (researched, low priority for now)
+
+- [ ] arXiv provider (needs Atom XML parsing; OpenAlex covers the niche)
+- [ ] Tavily safe_search passthrough
+- [ ] Cross-run memory / recurring research with trend snapshots
+- [ ] MCP artifacts as resources; Streamable HTTP + OAuth transport
+- [ ] Persistent RPC/attach LLM backend (pi/omp --mode rpc, opencode serve)
+- [ ] vygr eval scorecards; musl static targets

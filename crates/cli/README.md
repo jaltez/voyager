@@ -3,8 +3,8 @@
 Configurable deep-research CLI, written in Rust. Binary: **`vygr`**.
 
 Search the web through provider chains (keyless DuckDuckGo out of the box,
-plus Brave, Tavily, Exa, Serper, Jina and Kagi behind env keys, and
-self-hosted SearXNG), fetch and reduce pages to text, and run a
+plus Brave, Tavily, Exa, Serper, Jina and Kagi behind env keys, keyless
+OpenAlex and Semantic Scholar for papers, and self-hosted SearXNG), fetch and reduce pages to text, and run a
 full plan-search-synthesize research loop over any LLM backend: a
 models.dev provider, local Ollama, a custom OpenAI-compatible endpoint, or
 the LLM already configured in your agent harness (`--llm pi`, `--llm
@@ -44,7 +44,7 @@ cargo install --path crates/cli --bin vygr  # from a checkout
 |---|---|
 | `vygr search <q>` | provider-chain search; `--all` concurrent fan-out with dedup, `--extract-top N` inlines content, `--time-range day\|week\|month\|year`, `--include-domains`/`--exclude-domains`, `--no-cache`/`--cache-ttl` |
 | `vygr extract <urls>` | fetch pages, reduce to plain text |
-| `vygr research <q>` | iterative loop: plan → levels (search → fetch → BM25 → reflect) → synthesize; `--depth 2..4` (LLM picks within range), `--breadth`, `--budget-usd`, `--output-schema <file>`, `--llm <spec>`, artifacts under `agents/voyager/<run>/` |
+| `vygr research <q>` | iterative loop: plan → levels (search → fetch → BM25 → reflect) → synthesize with citation verification; `--depth 2..4`, `--breadth`, `--budget-usd`, `--output-schema <file>`, `--language`, `--llm <spec>`; artifacts under `agents/voyager/<run>/` |
 | `vygr plan <q>` | offline preflight of a research run |
 | `vygr providers` | search providers, required env vars, readiness |
 | `vygr models [provider]` | browse the models.dev catalog and pricing |
@@ -54,6 +54,7 @@ cargo install --path crates/cli --bin vygr  # from a checkout
 | `vygr cache dir\|clear` | inspect or clear the search cache |
 | `vygr serve` | MCP server over stdio (`search`, `extract`, `research`, `get_artifact`) |
 | `vygr update` | self-update from crates.io (`--check` reports only) |
+| `vygr runs list\|show\|resume` | inspect past runs; re-synthesize one offline from its saved evidence |
 
 Machine contract: `--format json` everywhere, diagnostics on stderr, exit
 codes `0` ok / `2` usage / `3` config-auth / `4` provider-network, `-`
@@ -117,7 +118,11 @@ budget_usd = 0.50
 
 ## Status
 
-Phase 3 complete (`v0.4.0`): the research command runs a real iterative
+Phase 6 complete (`v0.5.0`, see roadmap): citation verification, MCP
+progress notifications, fetch escalation (Jina reader) and PDF
+extraction, academic providers, circuit breaker, offline run resume.
+
+Historic: phase 3 (`v0.4.0`): the research command runs a real iterative
 loop (breadth halving, distilled reflections, BM25, per-call budget guard,
 `--output-schema`), and `vygr serve` exposes the tool as an MCP server
 over stdio with token-safe paged artifact reads. Search/extract/cache and
