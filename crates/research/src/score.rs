@@ -13,6 +13,33 @@ pub fn terms(text: &str) -> HashSet<String> {
         .collect()
 }
 
+/// The sentence of `content` with the highest term overlap against
+/// `terms` — the "best quote" stored per source so synthesis can cite a
+/// precise passage (ADR-0017). Returns `None` when nothing overlaps or
+/// the content has no sentences.
+pub fn best_passage(content: &str, query_terms: &HashSet<String>) -> Option<String> {
+    let mut best: Option<(usize, &str)> = None;
+    for sentence in content.split(". ") {
+        let sentence_terms = terms(sentence);
+        let hits = sentence_terms
+            .iter()
+            .filter(|t| query_terms.contains(*t))
+            .count();
+        if hits == 0 {
+            continue;
+        }
+        if best.is_none_or(|(b, _)| hits > b) {
+            best = Some((hits, sentence));
+        }
+    }
+    let (_, passage) = best?;
+    let mut out: String = passage.trim().chars().take(240).collect();
+    if !out.ends_with('.') {
+        out.push('.');
+    }
+    Some(out)
+}
+
 /// Okapi BM25 index over a fixed corpus (one entry per source document).
 pub struct Bm25 {
     k1: f32,
@@ -115,5 +142,17 @@ mod tests {
         let q = terms("wasm");
         // Higher term frequency wins despite similar length.
         assert!(index.score(&q, 0) > index.score(&q, 1));
+    }
+
+    #[test]
+    fn best_passage_picks_the_most_relevant_sentence() {
+        let content = "Intro fluff about nothing in particular. The engine shipped \
+wasm garbage collection in the stable channel. Another sentence about cookies.";
+        let q = terms("wasm garbage collection shipping");
+        let passage = best_passage(content, &q).unwrap();
+        assert!(passage.contains("garbage collection"));
+        assert!(!passage.contains("cookies"));
+        // No overlap anywhere -> None.
+        assert!(best_passage("nothing relevant here at all", &q).is_none());
     }
 }

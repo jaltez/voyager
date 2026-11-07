@@ -6,6 +6,9 @@ use vygr_core::types::{truncate_chars, SearchResult};
 pub enum SearchFormat {
     Table,
     Json,
+    /// One JSON object per line: pipe-friendly and streamable (`| jq`,
+    /// `| xargs`). Result lines only; cache meta stays in `--format json`.
+    Jsonl,
     Md,
     Urls,
 }
@@ -51,6 +54,11 @@ pub fn render_search(
             "results": results,
         }))
         .unwrap_or_default(),
+        SearchFormat::Jsonl => results
+            .iter()
+            .map(|r| serde_json::to_string(r).unwrap_or_default())
+            .collect::<Vec<_>>()
+            .join("\n"),
         SearchFormat::Md => results
             .iter()
             .enumerate()
@@ -112,5 +120,81 @@ pub fn render_pages(format: ExtractFormat, pages: &[vygr_core::types::FetchPage]
             })
             .collect::<Vec<_>>()
             .join("\n---\n\n"),
+    }
+}
+
+/// The body of the report's first `## Summary` section (used by
+/// `research --brief-only`); `None` when the report has none.
+pub fn extract_summary(answer: &str) -> Option<String> {
+    let mut lines = answer.lines().peekable();
+    for line in lines.by_ref() {
+        if line.trim().eq_ignore_ascii_case("## Summary") {
+            break;
+        }
+    }
+    let mut body: Vec<&str> = Vec::new();
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed.starts_with("## ") {
+            break;
+        }
+        body.push(line);
+    }
+    let text = body.join("\n").trim().to_string();
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_summary_pulls_the_first_summary_section() {
+        let answer = "## Summary\n\nShort answer with [1] citations.\n\n## Details\n\nBody.\n";
+        assert_eq!(
+            extract_summary(answer).as_deref(),
+            Some("Short answer with [1] citations.")
+        );
+        // Summary to EOF.
+        assert_eq!(
+            extract_summary("## Summary\n\nJust this.\n").as_deref(),
+            Some("Just this.")
+        );
+        // No summary section.
+        assert!(extract_summary("## Findings\n\nbody").is_none());
+    }
+
+    fn hit(url: &str) -> SearchResult {
+        SearchResult {
+            title: "t".into(),
+            url: url.into(),
+            snippet: "s".into(),
+            provider: "ddgs".into(),
+            providers: vec!["ddgs".into()],
+            content: None,
+        }
+    }
+
+    #[test]
+    fn jsonl_emits_one_parseable_object_per_result() {
+        let results = vec![hit("https://a.example/1"), hit("https://b.example/2")];
+        let out = render_search(
+            SearchFormat::Jsonl,
+            "q",
+            "ddgs",
+            &results,
+            &serde_json::json!({}),
+        );
+        let lines: Vec<serde_json::Value> = out
+            .lines()
+            .map(|l| serde_json::from_str(l).expect("each jsonl line must parse"))
+            .collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0]["url"], "https://a.example/1");
+        assert_eq!(lines[1]["url"], "https://b.example/2");
     }
 }

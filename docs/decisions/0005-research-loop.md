@@ -1,7 +1,7 @@
 # ADR 0005: Research loop (plan-then-execute, bounded budget of work)
 
 - **Date:** 2026-10-01
-- **Status:** Accepted (scaffold implements a single pass; iteration is phase 2)
+- **Status:** Accepted (implemented; phase 2 shipped in v0.3.0)
 
 ## Context
 

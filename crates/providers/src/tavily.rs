@@ -78,7 +78,7 @@ impl SearchProvider for TavilySearch {
 }
 
 /// JSON body for the search endpoint, including the native `time_range`
-/// freshness filter when requested.
+/// freshness filter and `safe_search` toggle when requested.
 fn request_body(q: &SearchQuery) -> serde_json::Value {
     let mut body = serde_json::json!({
         "query": q.query,
@@ -90,6 +90,9 @@ fn request_body(q: &SearchQuery) -> serde_json::Value {
     }
     if let Some(language) = &q.language {
         body["language"] = serde_json::json!(language);
+    }
+    if let Some(safe) = q.safe_search {
+        body["safe_search"] = serde_json::json!(safe);
     }
     body
 }
@@ -125,5 +128,17 @@ mod tests {
         );
         assert_eq!(fresh["time_range"], "week");
         assert_eq!(fresh["language"], "es");
+    }
+
+    #[test]
+    fn request_body_carries_safe_search_only_when_set() {
+        let plain = request_body(&SearchQuery::new("rust", 5));
+        assert!(plain.get("safe_search").is_none());
+
+        let safe = request_body(&SearchQuery::new("rust", 5).with_safe_search(Some(true)));
+        assert_eq!(safe["safe_search"], true);
+
+        let explicit_off = request_body(&SearchQuery::new("rust", 5).with_safe_search(Some(false)));
+        assert_eq!(explicit_off["safe_search"], false);
     }
 }

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <link href="http://arxiv.org/api/query" rel="self" type="application/atom+xml"/>
+  <title type="html">ArXiv Query: search_query=all:web agents</title>
+  <totalResults xmlns="http://a9.com/-/spec/opensearch/1.1/">2</totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/2401.12345v1</id>
+    <updated>2024-01-22T18:00:00Z</updated>
+    <published>2024-01-22T18:00:00Z</published>
+    <title>Web agents need foraging signals</title>
+    <summary>  We study how search agents
+forage across sources, and find that syndication
+    distorts naive confirmation counts.</summary>
+    <author><name>A. Researcher</name></author>
+    <author><name>B. Author</name></author>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+  <entry>
+    <id>2401.99999v2</id>
+    <updated>2024-02-01T12:00:00Z</updated>
+    <published>2024-02-01T12:00:00Z</published>
+    <title>A benchmark for research Q&amp;A agents</title>
+    <summary>We benchmark research agents on citation fidelity &amp; coverage.</summary>
+    <author><name>C. Del</name></author>
+  </entry>
+  <entry>
+    <updated>2024-03-01T12:00:00Z</updated>
+    <title>Entry with no id is skipped</title>
+    <summary>Nothing to link to.</summary>
+  </entry>
+</feed>

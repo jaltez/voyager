@@ -35,9 +35,6 @@ pub enum VygrError {
 
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),
-
-    #[error("not implemented yet: {0}")]
-    NotImplemented(&'static str),
 }
 
 impl VygrError {
@@ -82,7 +79,7 @@ impl VygrError {
         match self {
             VygrError::Config(_) | VygrError::Auth(_) => 3,
             VygrError::Provider { .. } | VygrError::Network(_) | VygrError::Parse(_) => 4,
-            VygrError::Io(_) | VygrError::Json(_) | VygrError::NotImplemented(_) => 1,
+            VygrError::Io(_) | VygrError::Json(_) => 1,
         }
     }
 }

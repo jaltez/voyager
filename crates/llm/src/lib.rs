@@ -6,10 +6,12 @@
 //! | spec                       | backend                                   |
 //! |----------------------------|-------------------------------------------|
 //! | `pi` / `claude` / `codex`  | harness shell-out (reuses the agent's LLM) |
+//! | `cmd:<template>`           | any command via `sh -c`: prompt on stdin, answer on stdout |
 //! | `ollama:<model>`           | local Ollama (OpenAI-compatible endpoint)  |
 //! | `openai-compat` + base_url | any custom OpenAI-compatible endpoint      |
 //! | `<provider>:<model>`       | models.dev provider, e.g. `openrouter:anthropic/claude-sonnet-4.5` |
 
+pub mod cmd_backend;
 pub mod harness;
 pub mod models_dev;
 pub mod ollama;
@@ -154,6 +156,16 @@ pub async fn resolve(
                 base,
                 model,
             )))
+        }
+        "cmd" => {
+            let template = spec_model.ok_or_else(|| {
+                VygrError::Config(
+                    "cmd needs a command template, e.g. --llm \"cmd:gemini -p\" (the prompt \
+arrives on stdin, the answer is read from stdout)"
+                        .into(),
+                )
+            })?;
+            Ok(Box::new(cmd_backend::CmdLlm::new(template)))
         }
         "openai-compat" | "openai-compatible" | "custom" => {
             let base = cfg

@@ -56,6 +56,10 @@ pub struct Args {
     /// Result-language hint (ISO code, e.g. es, en) where supported
     #[arg(long)]
     pub language: Option<String>,
+
+    /// Enable safe search (Tavily only; other providers ignore it)
+    #[arg(long)]
+    pub safe_search: bool,
 }
 
 pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), VygrError> {
@@ -95,7 +99,8 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
             parse_domain_list(args.include_domains.as_deref()),
             parse_domain_list(args.exclude_domains.as_deref()),
         )
-        .with_language(args.language.clone());
+        .with_language(args.language.clone())
+        .with_safe_search(args.safe_search.then_some(true));
     let (mut results, warnings) = if args.all {
         vygr_providers::search_all(&handle, &q).await
     } else {

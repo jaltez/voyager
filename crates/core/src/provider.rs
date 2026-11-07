@@ -74,6 +74,9 @@ pub struct SearchQuery {
     /// Result-language hint (ISO code like "es" or "en"); providers
     /// without native support ignore it.
     pub language: Option<String>,
+    /// Safe-search filter for providers with native support (Tavily);
+    /// providers without it ignore the field.
+    pub safe_search: Option<bool>,
 }
 
 impl SearchQuery {
@@ -85,6 +88,7 @@ impl SearchQuery {
             include_domains: Vec::new(),
             exclude_domains: Vec::new(),
             language: None,
+            safe_search: None,
         }
     }
 
@@ -106,6 +110,12 @@ impl SearchQuery {
         self.language = language
             .map(|l| l.trim().to_lowercase())
             .filter(|l| !l.is_empty());
+        self
+    }
+
+    /// Toggle safe search where the backend supports it natively.
+    pub fn with_safe_search(mut self, safe_search: Option<bool>) -> Self {
+        self.safe_search = safe_search;
         self
     }
 }

@@ -4,9 +4,10 @@ Configurable deep-research CLI, written in Rust. Binary: **`vygr`**.
 
 Search the web through provider chains (keyless DuckDuckGo out of the box,
 plus Brave, Tavily, Exa, Serper, Jina and Kagi behind env keys, keyless
-OpenAlex and Semantic Scholar for papers, and self-hosted SearXNG), fetch and reduce pages to text, and run a
+OpenAlex, Semantic Scholar and arXiv for papers, and self-hosted SearXNG), fetch and reduce pages to text, and run a
 full plan-search-synthesize research loop over any LLM backend: a
-models.dev provider, local Ollama, a custom OpenAI-compatible endpoint, or
+models.dev provider, local Ollama, a custom OpenAI-compatible endpoint,
+any command that reads stdin and writes stdout (`--llm "cmd:…"`), or
 the LLM already configured in your agent harness (`--llm pi`, `--llm
 claude`, `--llm codex`). Every research run leaves a verifiable evidence
 trail on disk.
@@ -42,22 +43,26 @@ cargo install --path crates/cli --bin vygr  # from a checkout
 
 | command | purpose |
 |---|---|
-| `vygr search <q>` | provider-chain search; `--all` concurrent fan-out with dedup, `--extract-top N` inlines content, `--time-range day\|week\|month\|year`, `--include-domains`/`--exclude-domains`, `--no-cache`/`--cache-ttl` |
+| `vygr search <q>` | provider-chain search; `--all` concurrent fan-out with dedup, `--extract-top N` inlines content, `--format jsonl` streams one JSON per result, `--time-range day\|week\|month\|year`, `--include-domains`/`--exclude-domains`, `--safe-search` (Tavily only; other providers ignore it), `--no-cache`/`--cache-ttl` |
 | `vygr extract <urls>` | fetch pages, reduce to plain text |
-| `vygr research <q>` | iterative loop: plan → levels (search → fetch → BM25 → reflect) → synthesize with citation verification; `--depth 2..4`, `--breadth`, `--budget-usd`, `--output-schema <file>`, `--language`, `--llm <spec>`; artifacts under `agents/voyager/<run>/` |
+| `vygr research <q>` | iterative loop: plan → levels (search → fetch → BM25 → reflect) → synthesize with citation verification; `--mode quick\|standard\|deep\|exhaustive`, `--depth 2..4`, `--breadth`, `--budget-usd`, `--output-schema <file>`, `--events` (NDJSON lifecycle stream), `--brief-only`, `--run-dir <path>`, `--language`, `--llm <spec>`; artifacts under `agents/voyager/<run>/` |
 | `vygr plan <q>` | offline preflight of a research run |
 | `vygr providers` | search providers, required env vars, readiness |
 | `vygr models [provider]` | browse the models.dev catalog and pricing |
-| `vygr schema` | machine-readable self-description (for agents) |
+| `vygr schema` | machine-readable self-description derived from the CLI itself (every flag, default and choice) |
 | `vygr config` | effective configuration + file paths |
-| `vygr init --agent pi\|omp\|opencode\|…` | install the agent skill (see below) |
+| `vygr init --agent pi\|claude-code\|… [--detect] [--mcp]` | install the agent skill (+`references/`); `--detect` probes the running harness; `--mcp` registers the MCP server (see below) |
+| `vygr doctor` | environment self-check: providers, LLM backend, dirs, skill freshness |
 | `vygr cache dir\|clear` | inspect or clear the search cache |
-| `vygr serve` | MCP server over stdio (`search`, `extract`, `research`, `get_artifact`) |
+| `vygr serve [--http IP:PORT] [--token SECRET]` | MCP server: stdio by default, Streamable HTTP with `--http` (`search`, `extract`, `research`, `get_artifact`) |
 | `vygr update` | self-update from crates.io (`--check` reports only) |
-| `vygr runs list\|show\|resume` | inspect past runs; re-synthesize one offline from its saved evidence |
+| `vygr runs list\|show\|resume` | inspect past runs; re-synthesize one offline from its saved evidence; `show <name> --export report.docx\|report.pdf` exports a Word or PDF report |
+| `vygr followup <run> <q>` | continue a finished investigation from its saved evidence; only hunts what's missing, emphasizes what changed |
+| `vygr monitor add\|list\|run` | recurring research: each check continues from the previous run (trend snapshots) |
+| `vygr eval <run>` | deterministic quality scorecard for a run (citations, coverage, diversity) → `eval.json` |
 
 Machine contract: `--format json` everywhere, diagnostics on stderr, exit
-codes `0` ok / `2` usage / `3` config-auth / `4` provider-network, `-`
+codes `0` ok / `1` internal / `2` usage / `3` config-auth / `4` provider-network, `-`
 reads the query from stdin. `vygr schema` explains itself.
 
 ## Configuration
@@ -85,7 +90,9 @@ budget_usd = 0.50
 ## Agent harness integration
 
 - **Skill**: [skills/vygr/SKILL.md](skills/vygr/SKILL.md) follows the
-  agentskills.io format. Install it in any supported agent with:
+  agentskills.io format with progressive disclosure
+  (`references/machine-contract.md`, `methodology.md`, `recipes.md` load
+  on demand). Install it in any supported agent with:
 
   ```sh
   npx skills add jaltez/voyager        # general install (pi, Claude Code, Codex, Cursor, …)
@@ -94,15 +101,38 @@ budget_usd = 0.50
   ```
 
   or, from a checkout of this repo, with the bundled installer:
-  `vygr init --agent pi|claude-code|codex|cursor|omp|opencode|generic [--project]`.
+  `vygr init --agent pi|claude-code|codex|cursor|omp|opencode|gemini-cli|generic [--project]`.
+  `--detect` probes the environment for a running harness; `--mcp` also
+  registers the MCP server (`vygr doctor` verifies the install later).
 - **Reuse the harness LLM**: `vygr research … --llm pi` shells out to
   `pi --print` (likewise `claude -p`, `codex exec`), so the research loop
   uses the harness's configured model and credentials. No MCP pass-through.
+- **Stream long runs**: `vygr research … --events` emits NDJSON lifecycle
+  events on stdout (`plan`, `level_start`, `sources_found`, …, `done`),
+  with the full report as the final line — render progress or kill early
+  without parsing prose.
 - **MCP**: `vygr serve` runs a stdio MCP server exposing `search`,
-  `extract`, `research` and `get_artifact` (token-safe paged reads of run
-  artifacts). Register with your harness, e.g.
-  `pi mcp add voyager -- vygr serve`; see
-  [ADR-0011](docs/decisions/0011-distribution-skill-and-mcp.md).
+  `extract`, `research`, `get_artifact`, `list_runs` and `get_run`
+  (token-safe paged reads), run artifacts as MCP **resources**
+  (`vygr://run/…`), and packaged research **prompts** (`compare`,
+  `landscape`). The four JSON tools declare `outputSchema` and mirror
+  their payload as `structuredContent`; text content is unchanged.
+  Register with your harness, e.g.
+  `pi mcp add voyager -- vygr serve`, or
+  `vygr init --agent claude-code --mcp` to write `./.mcp.json`; see
+  [ADR-0011](docs/decisions/0011-distribution-skill-and-mcp.md),
+  [ADR-0019](docs/decisions/0019-compatibility-and-reach.md) and
+  [ADR-0020](docs/decisions/0020-deferred-items-delivered.md).
+- **MCP over HTTP**: `vygr serve --http 127.0.0.1:8080` serves the same
+  tool surface as Streamable HTTP — `POST /mcp` takes one JSON-RPC message
+  (stateless per request; `initialize` mints an `Mcp-Session-Id`), `GET
+  /mcp` streams server notifications (`: keepalive` every ~15s and
+  `notifications/progress` for the session). With `--token` (or
+  `VGR_MCP_TOKEN` — prefer the env var, a flag is visible in `ps` and
+  shell history) every request must carry `Authorization: Bearer <token>`
+  (401 with a `WWW-Authenticate: Bearer` challenge); a non-loopback bind
+  without a token is refused (exit 3), and requests naming a non-loopback
+  `Host` or `Origin` get 403 (DNS-rebinding guard).
 
 ## Documentation
 
@@ -113,14 +143,40 @@ budget_usd = 0.50
   run artifacts, caching and distribution.
 - [Comparative analysis](docs/research/comparative-analysis.md): what was
   borrowed from tvly, GPT Researcher, hsearch, Web Forager and Librarium.
-- [Roadmap](docs/ROADMAP.md): cache/TTL + more providers, iterative depth
-  loop with reflections, MCP server, releases, browser escalation.
+- [Roadmap](docs/ROADMAP.md): phases 0-3 and 6-10 shipped; open items:
+  skill publishing (needs a public repo) and full OAuth Resource-Server
+  support for the MCP HTTP server.
 
 ## Status
 
-Phase 6 complete (`v0.5.0`, see roadmap): citation verification, MCP
-progress notifications, fetch escalation (Jina reader) and PDF
-extraction, academic providers, circuit breaker, offline run resume.
+Phase 10 complete (`v0.9.0`, ADR-0020): deferred items delivered —
+`--safe-search` passthrough (Tavily, cache-keyed), MCP
+`outputSchema`/`structuredContent` on the four JSON tools, the
+Streamable HTTP transport for `vygr serve` (`--http`, bearer-token
+auth), hand-rolled PDF report export alongside DOCX, and the
+headless-browser fetch rung validated against real Chrome.
+
+Phase 9 (`v0.8.0`, ADR-0019): compatibility and reach — musl
+static release target, keyless arXiv provider, `--llm "cmd:<template>"`
+for any local LLM wrapper, MCP `list_runs`/`get_run` tools + artifact
+resources + packaged prompts, DOCX report export, and headless-browser
+fetch escalation behind `--features browser`.
+
+Phase 8 (`v0.7.0`, ADR-0017/0018): evidence quality and research
+modes — `--mode` presets, claim-level `claims.json`, enforced
+disagreement reconciliation, syndication clustering, best quotes +
+`--brief-only`, `vygr eval` scorecards, and `vygr followup`/`vygr
+monitor` for continuing and recurring investigations.
+
+Phase 7 (`v0.6.0`, ADR-0016): agent interface maturity — clap-derived
+`vygr schema` v2, NDJSON `--events` + `search --format jsonl`,
+`--run-dir`/`VGR_RUN_DIR`, `vygr doctor`, the skill rewritten with
+progressive disclosure (`references/`), `vygr init --detect/--mcp`, and
+per-field config merging.
+
+Phase 6 (`v0.5.0`): citation verification, MCP progress notifications,
+fetch escalation (Jina reader) and PDF extraction, academic providers,
+circuit breaker, offline run resume.
 
 Historic: phase 3 (`v0.4.0`): the research command runs a real iterative
 loop (breadth halving, distilled reflections, BM25, per-call budget guard,

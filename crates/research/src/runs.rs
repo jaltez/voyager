@@ -22,6 +22,9 @@ pub struct RunManifest {
     pub reflections: Vec<String>,
     pub provider_spec: String,
     pub llm: String,
+    /// Parent investigation for follow-up / monitor runs (ADR-0018).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -175,6 +178,7 @@ mod tests {
                 reflections: vec![],
                 provider_spec: "ddgs".into(),
                 llm: "test".into(),
+                parent: None,
             })
             .unwrap(),
         )

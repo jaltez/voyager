@@ -101,9 +101,10 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 
 ## Phase 3: MCP server (done, `v0.4.0`)
 
-- [x] `vygr serve`: stdio MCP server (rmcp) exposing `search`, `extract`,
-      `research`, `get_results` (cursor-paged, size-capped like Librarium),
-      `check_run`.
+- [x] `vygr serve`: stdio MCP server exposing `search`, `extract`,
+      `research`, `get_artifact` (offset-paged, size-capped like Librarium);
+      hand-rolled newline-delimited JSON-RPC 2.0, no SDK dependency
+      (ADR-0011).
 - [x] Full evidence stays on disk; the MCP surface only pages summaries.
 
 ## Phase 4: distribution
@@ -120,7 +121,7 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 
 - [ ] Optional headless-browser fetch (chromiumoxide) for JS-heavy pages,
       behind a feature flag, only when plain HTTP fails.
-- [ ] PDF/DOCX report export.
+- [x] PDF/DOCX report export (DOCX in phase 9; PDF in Deferred).
 
 ## Phase 6: quality and reliability pass (done, `v0.5.0`, ADR-0015)
 
@@ -139,11 +140,104 @@ Design fixed by [ADR-0010](decisions/0010-caching-and-politeness.md).
 - [x] run.json manifests and vygr runs list|show|resume with offline
       re-synthesis
 
-## Deferred (researched, low priority for now)
+## Phase 7: agent interface maturity (done, `v0.6.0`, ADR-0016)
 
-- [ ] arXiv provider (needs Atom XML parsing; OpenAlex covers the niche)
-- [ ] Tavily safe_search passthrough
-- [ ] Cross-run memory / recurring research with trend snapshots
-- [ ] MCP artifacts as resources; Streamable HTTP + OAuth transport
-- [ ] Persistent RPC/attach LLM backend (pi/omp --mode rpc, opencode serve)
-- [ ] vygr eval scorecards; musl static targets
+Design fixed by [ADR-0016](decisions/0016-agent-interface-maturity.md).
+
+- [x] `vygr schema` v2: full command/flag tree derived from the clap
+      definition (never drifts), plus machine contract, artifact
+      inventory, per-command examples
+- [x] Machine-contract hygiene: exit code `1` documented everywhere;
+      CI tests pin `--format` on every data command and the exit-code
+      taxonomy in docs
+- [x] Structured events: `research --events` NDJSON lifecycle on stdout
+      (final `report` line carries the full report); `search --format
+      jsonl`
+- [x] `research --run-dir <path>` + `VGR_RUN_DIR` (artifacts out of the
+      repo when the agent wants that)
+- [x] `vygr doctor`: config layers, provider readiness, LLM backend
+      reachability, dir writability, skill freshness, catalog age
+      (exit 3 on failure)
+- [x] Skills overhaul: lean SKILL.md + `references/`
+      (machine-contract, methodology, recipes) installed by `vygr init`;
+      `version` frontmatter; drift tests cover every packaged file
+- [x] `vygr init --detect` (probe running harness), `--mcp` (merge
+      `.mcp.json` / print registration), gemini-cli target
+- [x] Per-field config merging (project files no longer reset
+      user-layer settings); openalex/s2 join `BUILTIN` (`--all`,
+      `vygr providers`); AGENTS.md for contributors
+- [x] Stale ADR status parentheticals refreshed (0005, 0010)
+
+## Phase 8: evidence quality and research modes (done, `v0.7.0`, ADR-0017/0018)
+
+Design fixed by [ADR-0017](decisions/0017-evidence-quality-and-modes.md)
+and [ADR-0018](decisions/0018-followup-and-monitor.md).
+
+- [x] `--mode quick|standard|deep|exhaustive` presets (flags > preset >
+      config); `vygr plan` understands them too
+- [x] Claim-level evidence table: every checked claim recorded in
+      `claims.json` (claim, citation, best source, overlap, verdict)
+- [x] Disagreement reconciliation: reflection reports source conflicts,
+      synthesis must reconcile them in a `## Disagreements` section
+- [x] Syndication clustering: near-identical titles share a cluster id +
+      origin count; evidence blocks annotated as one evidence chain
+- [x] Best quotes per source (BM25-top passage in the evidence block)
+      and a required `## Summary` section with `--brief-only` output
+- [x] `vygr eval <run>`: deterministic scorecard (citation resolvability,
+      verification, sub-query coverage, disconfirmation attempt,
+      diversity) written to `eval.json`
+- [x] `vygr followup <run> "q"`: continue a finished investigation from
+      its saved evidence; no refetching of parent URLs; `parent` recorded
+      in run.json
+- [x] `vygr monitor add|list|run`: recurring research with trend
+      snapshots; each check continues from the previous run and advances
+      the baseline
+
+## Phase 9: compatibility and reach (done, `v0.8.0`, ADR-0019)
+
+Design fixed by [ADR-0019](decisions/0019-compatibility-and-reach.md).
+
+- [x] musl static release target (`x86_64-unknown-linux-musl`)
+- [x] arXiv provider: keyless Atom API, hand-rolled parser, 3s
+      politeness spacing, joins `BUILTIN`
+- [x] Generic LLM shell-out: `--llm "cmd:<template>"` (prompt on stdin,
+      answer on stdout) — replaces the deferred RPC/attach backend
+- [x] MCP expansion: `list_runs` + `get_run` tools, run artifacts as
+      MCP resources (`vygr://run/...`), packaged prompts (`compare`,
+      `landscape`)
+- [x] DOCX report export: `runs show <name> --export report.docx`
+- [x] Headless-browser fetch escalation behind `--features browser`
+      (validated against real Chrome in phase 10, ADR-0020)
+
+## Phase 10: deferred items delivered (done, `v0.9.0`, ADR-0020)
+
+Design fixed by
+[ADR-0020](decisions/0020-deferred-items-delivered.md).
+
+- [x] Tavily `--safe-search` passthrough (`SearchQuery` field, part of
+      the cache key; other providers ignore it)
+- [x] MCP `outputSchema` + `structuredContent` on the four JSON tools
+      (`search`, `extract`, `list_runs`, `get_run`); text content
+      unchanged, purely additive. `structuredContent` is always a JSON
+      object (MCP requirement — `extract` wraps its page list in
+      `pages`), built from the same `Value` as the text so the two
+      cannot drift
+- [x] Streamable HTTP transport: `vygr serve --http <ip:port>` —
+      hand-rolled HTTP/1.1, stateless `POST /mcp` + SSE `GET /mcp`
+      (keepalives + progress keyed by `Mcp-Session-Id`), bearer-token
+      auth via `--token`/`VGR_MCP_TOKEN`, non-loopback binds refused
+      without one. Hardening from the transport review: DNS-rebinding
+      guard (non-loopback `Host`/`Origin` -> 403), `WWW-Authenticate:
+      Bearer` challenge on 401, conflicting duplicate `Content-Length`
+      and any `Transfer-Encoding` refused, pipelined requests answered
+      instead of dropped
+- [x] PDF report export: hand-rolled PDF 1.4 writer (three base-14
+      fonts, no font embedding, zero new dependencies — no typst)
+- [x] Browser fetch rung validated against real Chrome (ADR-0019's
+      acceptance test run; renders example.com end-to-end)
+
+## Deferred (researched, low priority)
+
+- [ ] Full OAuth Resource-Server support for the MCP HTTP server (the
+      static bearer token covers local/LAN; hand-rolled OAuth is a
+      security liability, per ADR-0020)

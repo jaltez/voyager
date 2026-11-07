@@ -12,6 +12,10 @@ pub struct Args {
     /// Research question
     pub query: String,
 
+    /// Preset: quick|standard|deep|exhaustive (same semantics as research)
+    #[arg(long)]
+    pub mode: Option<String>,
+
     #[arg(long)]
     pub depth: Option<String>,
 
@@ -21,14 +25,25 @@ pub struct Args {
 
 pub fn run(args: Args, cfg: &Config) -> Result<(), VygrError> {
     let query = read_query(&args.query)?;
+    let preset = match &args.mode {
+        Some(m) => Some(vygr_research::ResearchMode::parse(m)?.preset()),
+        None => None,
+    };
     let (depth_min, depth_max) = match &args.depth {
         Some(d) => {
             let spec = vygr_research::DepthSpec::parse(d)?;
             (spec.min, spec.max)
         }
-        None => (cfg.research.depth_min, cfg.research.depth_max),
+        None => match preset {
+            Some(p) => (p.0.min, p.0.max),
+            None => (cfg.research.depth_min, cfg.research.depth_max),
+        },
     };
-    let breadth = args.breadth.unwrap_or(cfg.research.breadth);
+    let breadth = args
+        .breadth
+        .or(preset.map(|p| p.1))
+        .unwrap_or(cfg.research.breadth);
+    let fetch_top = preset.map(|p| p.2).unwrap_or(cfg.research.fetch_top);
     let provider = cfg
         .default_provider
         .clone()
@@ -36,6 +51,7 @@ pub fn run(args: Args, cfg: &Config) -> Result<(), VygrError> {
 
     let plan = serde_json::json!({
         "query": query,
+        "mode": args.mode.as_deref().or(preset.map(|_| "standard")).unwrap_or("config-defaults"),
         "provider_chain": provider,
         "depth": { "min": depth_min, "max": depth_max },
         "breadth": breadth,
@@ -43,7 +59,7 @@ pub fn run(args: Args, cfg: &Config) -> Result<(), VygrError> {
             "subqueries": breadth,
             "searches_min": breadth,
             "results_raw": breadth * cfg.research.max_results_per_query as u32,
-            "pages_fetched": cfg.research.fetch_top,
+            "pages_fetched": fetch_top,
             // plan + synthesis + one reflection per level beyond the first.
             "llm_calls_min": 2 + depth_max.saturating_sub(1),
             "note": "breadth halves per level; levels stop early on satisfied reflection, no fresh sources, or budget",

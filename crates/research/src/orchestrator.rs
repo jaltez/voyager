@@ -43,6 +43,19 @@ impl DepthSpec {
     }
 }
 
+/// Prior-investigation context for follow-up runs and monitors (ADR-0018):
+/// the loop seeds its visited set, notes and evidence from the parent, so
+/// follow-up searches only hunt for what is new.
+#[derive(Debug, Clone)]
+pub struct ParentContext {
+    /// Run directory name of the parent investigation.
+    pub run_name: String,
+    /// Distilled notes from the parent run (become starting notes).
+    pub notes: Vec<String>,
+    /// Parent sources incl. content (become starting evidence).
+    pub sources: Vec<Source>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ResearchRequest {
     pub query: String,
@@ -64,6 +77,8 @@ pub struct ResearchRequest {
     /// Raw JSON Schema the synthesized answer must satisfy (M2.5). When
     /// set, the answer is requested as JSON and validated (parse-level).
     pub output_schema: Option<String>,
+    /// Continue an earlier investigation (follow-up / monitor runs).
+    pub parent: Option<ParentContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,8 +90,18 @@ pub struct Source {
     pub score: f32,
     /// Depth level at which this source was gathered.
     pub level: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    /// Same-story cluster id (syndication de-dup, ADR-0017); unique
+    /// stories are `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cluster_id: Option<u32>,
+    /// Copies of this story (cluster size) when > 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_count: Option<usize>,
+    /// Best-matching passage, for citation-precise synthesis (ADR-0017).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub best_quote: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -113,11 +138,14 @@ pub struct ResearchReport {
 }
 
 pub(crate) const SYNTHESIS_SYSTEM: &str = "You are a senior research analyst. Write a focused markdown report answering the question. \
+Begin with a '## Summary' section of at most 200 words before any other content. \
 Cite sources inline with bracketed numbers like [1] referring only to the numbered evidence blocks provided. \
 Prefer primary sources. Use the research notes as guidance but verify claims against the evidence blocks. \
-If evidence blocks disagree, reconcile the disagreement explicitly instead of \
-averaging incompatible figures. End with a '## Caveats & open questions' section listing what could not \
-be verified from the provided evidence.";
+Sources marked as syndicated copies are one evidence chain, not independent confirmation. \
+If evidence blocks or the reported disagreements conflict, reconcile them explicitly instead of \
+averaging incompatible figures, and add a '## Disagreements' section explaining each conflict and \
+how you resolved it (definitions, units, time periods). End with a '## Caveats & open questions' \
+section listing what could not be verified from the provided evidence.";
 
 /// Receiver for human-readable progress lines during a run (levels,
 /// reflections, synthesis). The CLI prints them to stderr; the MCP server
@@ -125,20 +153,98 @@ be verified from the provided evidence.";
 /// per-request timeout at bay).
 pub type ProgressSink = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 
+/// Structured lifecycle events for machine consumers (`--events`):
+/// one JSON line each on stdout, complementing the human progress lines
+/// on stderr (ADR-0016).
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "event", rename_all = "snake_case")]
+pub enum ResearchEvent {
+    RunStart {
+        query: String,
+        provider: String,
+        depth_min: u32,
+        depth_max: u32,
+        breadth: u32,
+        llm: String,
+        /// Parent investigation when this is a follow-up/monitor run.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        parent: Option<String>,
+    },
+    Plan {
+        subqueries: Vec<String>,
+        depth_used: u32,
+    },
+    LevelStart {
+        level: u32,
+        total: u32,
+        queries: Vec<String>,
+    },
+    SourcesFound {
+        level: u32,
+        new: usize,
+        total: usize,
+    },
+    Reflection {
+        level: u32,
+        notes: usize,
+        followups: Vec<String>,
+        disagreements: usize,
+        satisfied: bool,
+    },
+    SynthesisStart {
+        sources: usize,
+        estimated_cost_usd: Option<f64>,
+    },
+    Verified {
+        checked: usize,
+        weak: usize,
+    },
+    Done {
+        cost_usd: Option<f64>,
+        degraded: bool,
+        run_dir: Option<String>,
+    },
+    Warning {
+        message: String,
+    },
+}
+
+/// Receiver for structured run events. The CLI serializes each event as
+/// a single JSON line on stdout so harnesses can render progress or kill
+/// long runs early.
+pub type EventSink = std::sync::Arc<dyn Fn(&ResearchEvent) + Send + Sync>;
+
 pub async fn run(
     req: ResearchRequest,
     llm: Box<dyn LlmClient>,
     http: reqwest::Client,
     progress: Option<ProgressSink>,
+    events: Option<EventSink>,
 ) -> Result<ResearchReport, VygrError> {
     let progress = progress.unwrap_or_else(|| std::sync::Arc::new(|_| {}));
     let report = |msg: String| progress(msg.as_str());
+    let events = events.as_ref();
+    let emit = |ev: ResearchEvent| {
+        if let Some(sink) = events {
+            sink(&ev);
+        }
+    };
     let mut warnings = Vec::new();
     let mut spent = 0.0f64;
     let mut tracked = false;
     let llm_desc = llm.describe();
     let over_budget =
         |spent: f64, tracked: bool| tracked && req.budget_usd.is_some_and(|b| spent >= b);
+
+    emit(ResearchEvent::RunStart {
+        query: req.query.clone(),
+        provider: req.provider_spec.clone(),
+        depth_min: req.depth.min,
+        depth_max: req.depth.max,
+        breadth: req.breadth,
+        llm: llm_desc.clone(),
+        parent: req.parent.as_ref().map(|p| p.run_name.clone()),
+    });
 
     // 0) Evidence trail (ADR-0009).
     let dir: PathBuf = run_dir::create_run_dir(req.run_dir_base.as_deref(), &req.query)?;
@@ -160,8 +266,15 @@ pub async fn run(
     );
 
     // 1) Plan: sub-queries generated up-front, depth chosen by the LLM.
+    //    Follow-up runs hand the planner the parent's notes so the
+    //    sub-queries target what is still missing (ADR-0018).
+    let prior_notes: Vec<String> = req
+        .parent
+        .as_ref()
+        .map(|p| p.notes.clone())
+        .unwrap_or_default();
     let (initial_queries, depth_used, plan_cost) =
-        planner::plan(&*llm, &req.query, req.breadth, &req.depth).await?;
+        planner::plan(&*llm, &req.query, req.breadth, &req.depth, &prior_notes).await?;
     if let Some(c) = plan_cost {
         spent += c;
         tracked = true;
@@ -171,6 +284,10 @@ pub async fn run(
         "plan ready: {} sub-queries, depth {depth_used}",
         initial_queries.len()
     ));
+    emit(ResearchEvent::Plan {
+        subqueries: initial_queries.clone(),
+        depth_used,
+    });
     let _ = run_dir::write_file(
         &dir,
         "plan.json",
@@ -194,9 +311,31 @@ pub async fn run(
     let mut visited: HashSet<String> = HashSet::new();
     let mut sources: Vec<Source> = Vec::new();
     let mut reflections: Vec<String> = Vec::new();
+    let mut disagreements: Vec<String> = Vec::new();
     let mut next_queries: Vec<String> = initial_queries.clone();
     let mut budget_exhausted = false;
     let mut iterations_done = 0u32;
+
+    // Follow-up runs (ADR-0018): parent evidence becomes the starting
+    // context and its URLs are treated as already visited.
+    if let Some(parent) = &req.parent {
+        for mut s in parent.sources.clone() {
+            visited.insert(vygr_providers::url_key(&s.url));
+            s.level = 0;
+            sources.push(s);
+        }
+        reflections.extend(parent.notes.iter().cloned());
+        let _ = run_dir::write_file(
+            &dir,
+            "parent.json",
+            &serde_json::to_string_pretty(&serde_json::json!({
+                "parent_run": parent.run_name,
+                "inherited_sources": parent.sources.len(),
+                "inherited_notes": parent.notes.len(),
+            }))
+            .unwrap_or_default(),
+        );
+    }
 
     for level in 0..depth_used {
         // Breadth halves per level, floored at 2 (GPT Researcher model).
@@ -205,6 +344,11 @@ pub async fn run(
         if queries.is_empty() {
             break;
         }
+        emit(ResearchEvent::LevelStart {
+            level: level + 1,
+            total: depth_used,
+            queries: queries.clone(),
+        });
 
         // 2a) Search this level's sub-queries.
         let mut level_results: Vec<SearchResult> = Vec::new();
@@ -229,7 +373,7 @@ pub async fn run(
             .filter(|r| visited.insert(vygr_providers::url_key(&r.url)))
             .collect();
         if fresh.is_empty() {
-            if level == 0 {
+            if level == 0 && sources.is_empty() {
                 return Err(VygrError::provider(
                     req.provider_spec.clone(),
                     "all searches returned nothing",
@@ -284,18 +428,27 @@ pub async fn run(
             })
             .collect();
         let index = score::Bm25::build(docs.iter().map(String::as_str));
+        let term_set: HashSet<String> = query_terms.iter().cloned().collect();
         let level_sources: Vec<Source> = fresh
             .into_iter()
             .zip(fetched)
             .enumerate()
-            .map(|(i, (r, content))| Source {
-                title: r.title,
-                url: r.url,
-                snippet: r.snippet,
-                provider: r.providers.join("+"),
-                score: index.score(&query_terms, i),
-                level,
-                content,
+            .map(|(i, (r, content))| {
+                let best_quote = content
+                    .as_deref()
+                    .and_then(|c| score::best_passage(c, &term_set));
+                Source {
+                    title: r.title,
+                    url: r.url,
+                    snippet: r.snippet,
+                    provider: r.providers.join("+"),
+                    score: index.score(&query_terms, i),
+                    level,
+                    content,
+                    cluster_id: None,
+                    origin_count: None,
+                    best_quote,
+                }
             })
             .collect();
         let new_count = level_sources.len();
@@ -308,6 +461,11 @@ pub async fn run(
             new_count,
             sources.len()
         ));
+        emit(ResearchEvent::SourcesFound {
+            level: level + 1,
+            new: new_count,
+            total: sources.len(),
+        });
 
         // 2e) Reflect for the next level (skipped on the last one).
         if level + 1 >= depth_used {
@@ -320,6 +478,13 @@ pub async fn run(
                 req.budget_usd.unwrap_or(0.0),
                 level + 1
             ));
+            emit(ResearchEvent::Warning {
+                message: format!(
+                    "budget ${:.2} reached after level {}; stopping before reflection",
+                    req.budget_usd.unwrap_or(0.0),
+                    level + 1
+                ),
+            });
             break;
         }
         let digest = sources_digest(&sources, new_count);
@@ -332,11 +497,13 @@ pub async fn run(
                 let followup_count = reflection.followups.len();
                 let has_followups = followup_count > 0;
                 reflections.extend(reflection.notes);
+                disagreements.extend(reflection.disagreements);
                 let _ = run_dir::write_file(
                     &dir,
                     "reflections.json",
                     &serde_json::to_string_pretty(&serde_json::json!({
                         "notes": reflections,
+                        "disagreements": disagreements,
                         "satisfied": reflection.satisfied,
                         "level": level + 1,
                     }))
@@ -346,6 +513,13 @@ pub async fn run(
                     "reflection: {} notes, {followup_count} follow-up queries",
                     reflections.len()
                 ));
+                emit(ResearchEvent::Reflection {
+                    level: level + 1,
+                    notes: reflections.len(),
+                    followups: reflection.followups.clone(),
+                    disagreements: disagreements.len(),
+                    satisfied: !has_followups,
+                });
                 if !has_followups {
                     tracing::info!(level, "reflection satisfied; stopping");
                     break;
@@ -356,6 +530,9 @@ pub async fn run(
                 // A failed reflection ends the loop; the evidence so far
                 // still gets synthesized.
                 warnings.push(format!("reflection: {e}"));
+                emit(ResearchEvent::Warning {
+                    message: format!("reflection failed: {e}"),
+                });
                 break;
             }
         }
@@ -375,13 +552,14 @@ pub async fn run(
         ));
     }
 
-    // 3) Rank everything and persist the evidence (citations [n] index
-    // into sources.json order).
+    // 3) Rank everything, cluster syndicated copies, and persist the
+    // evidence (citations [n] index into sources.json order).
     sources.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+    crate::cluster::cluster_sources(&mut sources);
     let sources_json = serde_json::to_string_pretty(&sources).unwrap_or_default();
     let _ = run_dir::write_file(&dir, "sources.json", &sources_json);
 
@@ -396,6 +574,14 @@ pub async fn run(
 abstaining from synthesis instead of fabricating"
                 .to_string(),
         );
+        emit(ResearchEvent::Warning {
+            message: "no usable evidence was gathered; abstaining from synthesis".to_string(),
+        });
+        emit(ResearchEvent::Done {
+            cost_usd: if tracked { Some(spent) } else { None },
+            degraded: false,
+            run_dir: Some(dir.display().to_string()),
+        });
         return Ok(ResearchReport {
             query: req.query,
             depth_used,
@@ -422,6 +608,10 @@ abstaining from synthesis instead of fabricating"
         sources.len()
     ));
     let estimate = llm.estimate_cost_usd(req.context_max_chars, Some(4_096));
+    emit(ResearchEvent::SynthesisStart {
+        sources: sources.len(),
+        estimated_cost_usd: estimate,
+    });
     let mut schema_valid: Option<bool> = None;
     let mut verification_value: Option<crate::verify::Verification> = None;
     let mut degraded = false;
@@ -438,9 +628,22 @@ returning a degraded report built from the gathered evidence",
             req.budget_usd.unwrap_or(0.0),
             estimate.unwrap_or(0.0)
         ));
+        emit(ResearchEvent::Warning {
+            message: "budget would be exceeded by synthesis; returning a degraded report"
+                .to_string(),
+        });
         Some(degraded_answer(&req.query, &reflections, &sources))
     } else {
-        match synthesize(&*llm, &req, &initial_queries, &reflections, &sources).await {
+        match synthesize(
+            &*llm,
+            &req,
+            &initial_queries,
+            &reflections,
+            &disagreements,
+            &sources,
+        )
+        .await
+        {
             Ok((content, cost)) => {
                 if let Some(c) = cost {
                     spent += c;
@@ -464,21 +667,34 @@ returning a degraded report built from the gathered evidence",
                 report(format!(
                     "verification: {} cited sentences checked, {} weakly supported",
                     verification.checked,
-                    verification.weak.len()
+                    verification.weak_count()
                 ));
+                emit(ResearchEvent::Verified {
+                    checked: verification.checked,
+                    weak: verification.weak_count(),
+                });
                 if !verification.is_clean() {
                     warnings.push(format!(
                         "{} weakly supported citation(s); see the verification section of answer.md",
-                        verification.weak.len()
+                        verification.weak_count()
                     ));
                     answer.push_str(&crate::verify::verification_section(&verification));
                 }
+                // Claim-level evidence table (ADR-0017).
+                let _ = run_dir::write_file(
+                    &dir,
+                    "claims.json",
+                    &serde_json::to_string_pretty(&verification.claims).unwrap_or_default(),
+                );
                 verification_value = Some(verification);
                 let _ = run_dir::write_file(&dir, "answer.md", &answer);
                 Some(answer)
             }
             Err(e) => {
                 warnings.push(format!("synthesis: {e}"));
+                emit(ResearchEvent::Warning {
+                    message: format!("synthesis failed: {e}"),
+                });
                 None
             }
         }
@@ -497,9 +713,16 @@ returning a degraded report built from the gathered evidence",
             reflections: reflections.clone(),
             provider_spec: req.provider_spec.clone(),
             llm: llm_desc.clone(),
+            parent: req.parent.as_ref().map(|p| p.run_name.clone()),
         })
         .unwrap_or_default(),
     );
+
+    emit(ResearchEvent::Done {
+        cost_usd: if tracked { Some(spent) } else { None },
+        degraded,
+        run_dir: Some(dir.display().to_string()),
+    });
 
     Ok(ResearchReport {
         query: req.query,
@@ -553,11 +776,12 @@ async fn synthesize(
     req: &ResearchRequest,
     subqueries: &[String],
     reflections: &[String],
+    disagreements: &[String],
     sources: &[Source],
 ) -> Result<(String, Option<f64>), VygrError> {
     let context = assemble_context(sources, req.context_max_chars);
     let mut user = format!(
-        "Question: {}\n\nSub-queries explored:\n{}\n\nResearch notes:\n{}\n\nEvidence blocks:\n{}",
+        "Question: {}\n\nSub-queries explored:\n{}\n\nResearch notes:\n{}\n\n{prompt_dis}Evidence blocks:\n{context}{prompt_parent}",
         req.query,
         subqueries
             .iter()
@@ -573,7 +797,29 @@ async fn synthesize(
                 .collect::<Vec<_>>()
                 .join("\n")
         },
-        context,
+        prompt_dis = if disagreements.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "Reported disagreements between sources (reconcile explicitly, do not average):\n{}\n\n",
+                disagreements
+                    .iter()
+                    .map(|d| format!("- {d}"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        },
+        prompt_parent = match &req.parent {
+            Some(parent) => format!(
+                "\n\nThis continues the earlier investigation '{}' ({} inherited evidence blocks, \
+{} inherited notes). Emphasize what is NEW or CHANGED relative to that investigation; do not \
+repeat its full findings unless needed for context.",
+                parent.run_name,
+                parent.sources.len(),
+                parent.notes.len()
+            ),
+            None => String::new(),
+        },
     );
     let mut max_tokens = 4_096u32;
     if let Some(schema) = &req.output_schema {
@@ -618,7 +864,20 @@ fn assemble_context(sources: &[Source], max_chars: usize) -> String {
         if excerpt.is_empty() {
             continue;
         }
-        let block = format!("[{}] {} ({})\n{}\n\n", i + 1, s.title, s.url, excerpt);
+        let syndicated = match s.origin_count {
+            Some(n) if n > 1 => format!(" [same story as {n} outlets — one evidence chain]"),
+            _ => String::new(),
+        };
+        let quote = match &s.best_quote {
+            Some(q) => format!("\n> {q}"),
+            None => String::new(),
+        };
+        let block = format!(
+            "[{}] {} ({}){syndicated}\n{excerpt}{quote}\n\n",
+            i + 1,
+            s.title,
+            s.url
+        );
         if used + block.len() > max_chars {
             break;
         }
@@ -676,6 +935,9 @@ mod tests {
             score,
             level: 0,
             content: content.map(str::to_string),
+            cluster_id: None,
+            origin_count: None,
+            best_quote: None,
         }
     }
 

@@ -1,7 +1,7 @@
 # ADR 0010: Caching, rate limiting and politeness (planned)
 
 - **Date:** 2026-10-01
-- **Status:** Accepted (design); implementation is roadmap phase 1
+- **Status:** Accepted (implemented; phase 1 shipped in v0.2.0)
 
 ## Context
 

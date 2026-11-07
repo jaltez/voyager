@@ -17,21 +17,38 @@ struct PlanJson {
 
 /// Ask the LLM for sub-queries and a depth. Falls back to the raw query if
 /// the model returns nothing usable (the run degrades, it does not fail).
+/// `prior_notes` (from a parent investigation, ADR-0018) steer the
+/// sub-queries toward what is still missing.
 pub async fn plan(
     llm: &dyn LlmClient,
     query: &str,
     breadth: u32,
     depth: &DepthSpec,
+    prior_notes: &[String],
 ) -> Result<(Vec<String>, u32, Option<f64>), VygrError> {
     let system = "You are a research planner. Decompose the research question into diverse, \
 searchable sub-queries covering different framings of the question, including at least one \
 disconfirming or counter-evidence query. Sub-queries must be self-contained keyword-style \
 web searches, not questions requiring prior context.";
     let user = format!(
-        "Research question: {query}\n\nProduce at most {breadth} sub-queries. \
+        "Research question: {query}\n\n{prior}Produce at most {breadth} sub-queries. \
 Choose an integer depth (number of research passes) between {min} and {max} matching the \
 question's complexity.\n\nRespond with ONLY minified JSON, no prose, in the shape \
 {{\"subqueries\":[\"...\"],\"depth\":N}}",
+        prior = if prior_notes.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "Established findings from an earlier investigation (do not re-search these; \
+target what is missing or outdated):\n{}\n\n",
+                prior_notes
+                    .iter()
+                    .take(8)
+                    .map(|n| format!("- {n}"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        },
         min = depth.min,
         max = depth.max,
     );
@@ -79,7 +96,8 @@ pub fn parse_json_object<T: serde::de::DeserializeOwned>(raw: &str) -> Result<T,
 }
 
 /// Output of a reflection pass (ADR-0012): distilled notes feed later
-/// stages; follow-up queries target the gaps found in the new evidence.
+/// stages; follow-up queries target the gaps found in the new evidence;
+/// reported disagreements are reconciled explicitly at synthesis (ADR-0017).
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Reflection {
     #[serde(default)]
@@ -87,11 +105,14 @@ pub struct Reflection {
     #[serde(default)]
     pub followups: Vec<String>,
     #[serde(default)]
+    pub disagreements: Vec<String>,
+    #[serde(default)]
     pub satisfied: bool,
 }
 
 const MAX_NOTES: usize = 8;
 const MAX_FOLLOWUPS: usize = 3;
+const MAX_DISAGREEMENTS: usize = 5;
 
 /// Ask the LLM to distill the new evidence and propose follow-up searches.
 /// Only the returned notes (never the raw digests) feed later stages.
@@ -104,11 +125,12 @@ pub async fn reflect(
     let system = "You are a research reflection agent. You receive a research question, \
 distilled notes accumulated so far, and digests of newly gathered evidence. Distill durable, \
 non-redundant facts into short notes and identify concrete gaps: missing data, contradictions \
-between sources, unverified claims. Respond with ONLY minified JSON in the shape \
-{\"notes\":[\"...\"],\"followups\":[\"...\"],\"satisfied\":false} with at most 8 notes \
-(each under 200 characters), 1-3 followup keyword-style web searches targeting the gaps \
-(empty array when satisfied), and satisfied=true only when the question is fully answered \
-by the evidence.";
+between sources, unverified claims. Report every contradiction you can see between sources as a \
+disagreement (what conflicts and why, in one line). Respond with ONLY minified JSON in the shape \
+{\"notes\":[\"...\"],\"followups\":[\"...\"],\"disagreements\":[\"...\"],\"satisfied\":false} \
+with at most 8 notes (each under 200 characters), 1-3 followup keyword-style web searches \
+targeting the gaps (empty array when satisfied), disagreements between sources (empty array \
+when none), and satisfied=true only when the question is fully answered by the evidence.";
     let user = format!(
         "Question: {question}\n\nNotes so far:\n{}\n\nNew evidence digests:\n{evidence_digest}",
         if notes.is_empty() {
@@ -134,6 +156,7 @@ by the evidence.";
 
     let mut reflection: Reflection = parse_json_object(&resp.content)?;
     reflection.notes = clean_items(reflection.notes, MAX_NOTES, 200);
+    reflection.disagreements = clean_items(reflection.disagreements, MAX_DISAGREEMENTS, 200);
     if reflection.satisfied {
         reflection.followups.clear();
     } else {

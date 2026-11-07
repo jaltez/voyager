@@ -5,13 +5,18 @@ use vygr_core::config::Config;
 use vygr_core::VygrError;
 use vygr_research::{DepthSpec, ResearchRequest};
 
-use crate::commands::read_query;
+use crate::commands::{finish_research, read_query};
 use crate::output::ReportFormat;
 
 #[derive(Debug, ClapArgs)]
 pub struct Args {
     /// Research question ("-" reads it from stdin)
     pub query: String,
+
+    /// Preset: quick|standard|deep|exhaustive. Explicit depth/breadth
+    /// flags override the preset; the preset overrides config defaults.
+    #[arg(long)]
+    pub mode: Option<String>,
 
     /// Depth as "3" (fixed) or "2..4" (range; the LLM picks within it).
     /// Defaults to the [research] depth_min..depth_max config.
@@ -39,6 +44,20 @@ pub struct Args {
     #[arg(long)]
     pub output_schema: Option<String>,
 
+    /// Stream the run as NDJSON lifecycle events on stdout; the final
+    /// `report` line carries the whole ResearchReport
+    #[arg(long)]
+    pub events: bool,
+
+    /// Print only the report's Summary section (context-tight agents)
+    #[arg(long)]
+    pub brief_only: bool,
+
+    /// Base directory for this run's artifacts (default: ./agents/voyager
+    /// or [research] run_dir; env VGR_RUN_DIR)
+    #[arg(long)]
+    pub run_dir: Option<String>,
+
     #[arg(long, value_enum, default_value = "md")]
     pub format: ReportFormat,
 }
@@ -53,28 +72,39 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
     let llm = vygr_llm::resolve(args.llm.as_deref(), &cfg.llm, &http).await?;
     tracing::info!("llm backend: {}", llm.describe());
 
+    // Preset fills what the flags and config leave open (ADR-0017).
+    let preset = match &args.mode {
+        Some(m) => Some(vygr_research::ResearchMode::parse(m)?.preset()),
+        None => None,
+    };
     let depth = match &args.depth {
         Some(d) => DepthSpec::parse(d)?,
-        None => DepthSpec {
+        None => preset.map(|p| p.0).unwrap_or(DepthSpec {
             min: cfg.research.depth_min,
             max: cfg.research.depth_max,
-        },
+        }),
     };
 
     let request = ResearchRequest {
         query: read_query(&args.query)?,
         depth,
-        breadth: args.breadth.unwrap_or(cfg.research.breadth),
+        breadth: args
+            .breadth
+            .or(preset.map(|p| p.1))
+            .unwrap_or(cfg.research.breadth),
         budget_usd: args.budget_usd.or(cfg.research.budget_usd),
         max_results_per_query: cfg.research.max_results_per_query,
-        fetch_top: cfg.research.fetch_top,
+        fetch_top: preset.map(|p| p.2).unwrap_or(cfg.research.fetch_top),
         context_max_chars: cfg.research.context_max_chars,
         provider_spec: args
             .provider
             .clone()
             .or_else(|| cfg.default_provider.clone())
             .unwrap_or_else(|| "ddgs".to_string()),
-        run_dir_base: cfg.research.run_dir.clone(),
+        run_dir_base: args
+            .run_dir
+            .or_else(|| std::env::var("VGR_RUN_DIR").ok())
+            .or_else(|| cfg.research.run_dir.clone()),
         stack: vygr_core::config::SearchStackConf::from_config(cfg),
         time_range: match cfg.research.time_range.as_deref() {
             Some(s) => Some(vygr_core::provider::TimeRange::parse(s)?),
@@ -91,29 +121,16 @@ pub async fn run(args: Args, http: reqwest::Client, cfg: &Config) -> Result<(), 
             Some(path) => Some(load_schema(path)?),
             None => None,
         },
+        parent: None,
     };
 
-    let progress: vygr_research::ProgressSink = std::sync::Arc::new(|msg| eprintln!("vygr: {msg}"));
-    let report = vygr_research::run(request, llm, http, Some(progress)).await?;
-
-    match args.format {
-        ReportFormat::Md => {
-            if let Some(answer) = &report.answer {
-                println!("{answer}");
-            } else {
-                println!("# {}\n", report.query);
-                println!("_no answer was synthesized (see warnings below)_\n");
-                for w in &report.warnings {
-                    eprintln!("vygr: {w}");
-                }
-            }
-        }
-        ReportFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(&report)?);
-        }
-    }
-    if let Some(dir) = &report.run_dir {
-        eprintln!("vygr: run artifacts: {dir}");
-    }
-    Ok(())
+    finish_research(
+        request,
+        llm,
+        http,
+        args.events,
+        args.format,
+        args.brief_only,
+    )
+    .await
 }

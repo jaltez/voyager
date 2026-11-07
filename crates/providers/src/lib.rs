@@ -1,7 +1,9 @@
 //! Search and fetch providers, plus the chain / fan-out combinators that
 //! give vygr its multi-provider behavior (ADR-0003).
 
+mod arxiv;
 mod brave;
+mod browser;
 mod cache;
 mod ddgs;
 mod escalate;
@@ -30,9 +32,12 @@ use vygr_core::provider::{SearchProvider, SearchQuery};
 use vygr_core::types::SearchResult;
 use vygr_core::VygrError;
 
-/// Provider ids compiled into this binary.
+/// Provider ids compiled into this binary. The academic keyless backends
+/// join `--all` fan-outs and `vygr providers`; `s2` still needs
+/// `S2_API_KEY` to be considered ready (its anonymous tier is tight).
 pub const BUILTIN: &[&str] = &[
-    "ddgs", "brave", "tavily", "searxng", "exa", "serper", "jina", "kagi",
+    "ddgs", "brave", "tavily", "searxng", "exa", "serper", "jina", "kagi", "openalex", "s2",
+    "arxiv",
 ];
 
 /// Map an alias to its canonical provider id.
@@ -48,6 +53,7 @@ pub fn canonical(id: &str) -> Option<&'static str> {
         "kagi" => Some("kagi"),
         "openalex" => Some("openalex"),
         "s2" | "semantic" | "semanticscholar" => Some("s2"),
+        "arxiv" => Some("arxiv"),
         _ => None,
     }
 }
@@ -156,6 +162,7 @@ pub fn build_chain(
                 Some("kagi") => Box::new(kagi::KagiSearch::new(http.clone())),
                 Some("openalex") => Box::new(openalex::OpenAlexSearch::new(http.clone())),
                 Some("s2") => Box::new(semanticscholar::SemanticScholarSearch::new(http.clone())),
+                Some("arxiv") => Box::new(arxiv::ArxivSearch::new(http.clone())),
                 Some("searxng") => {
                     let configured = stack
                         .providers

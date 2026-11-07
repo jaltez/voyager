@@ -24,6 +24,9 @@ pub struct EscalatingFetch {
     http: reqwest::Client,
     /// Set to false to disable the reader retry entirely.
     pub escalate: bool,
+    /// Try the headless-browser rung after the reader fails (ADR-0019).
+    /// On by default when compiled with `--features browser`.
+    pub browser: bool,
 }
 
 impl EscalatingFetch {
@@ -32,6 +35,7 @@ impl EscalatingFetch {
             inner,
             http,
             escalate: true,
+            browser: cfg!(feature = "browser"),
         }
     }
 }
@@ -66,32 +70,44 @@ impl FetchProvider for EscalatingFetch {
                 request = request.bearer_auth(key.trim());
             }
         }
-        match request.send().await {
-            Ok(resp) if resp.status().is_success() => {
-                let text = resp
-                    .text()
-                    .await
-                    .map_err(|e| VygrError::Network(format!("jina reader: {e}")))?;
-                if text.trim().is_empty() {
-                    return plain;
+        let reader = match request.send().await {
+            Ok(resp) if resp.status().is_success() => match resp.text().await {
+                Ok(text) if !text.trim().is_empty() => {
+                    // The reader answers markdown: the first heading is a
+                    // reasonable title when present.
+                    let title = text
+                        .lines()
+                        .find(|l| l.starts_with("# "))
+                        .map(|l| l.trim_start_matches("# ").trim().to_string());
+                    Some(FetchPage {
+                        url: url.to_string(),
+                        final_url: url.to_string(),
+                        title,
+                        text: truncate_chars(text.trim(), max_chars),
+                        content_type: "text/markdown".to_string(),
+                    })
                 }
-                // The reader answers markdown: the first heading is a
-                // reasonable title when present.
-                let title = text
-                    .lines()
-                    .find(|l| l.starts_with("# "))
-                    .map(|l| l.trim_start_matches("# ").trim().to_string());
-                Ok(FetchPage {
-                    url: url.to_string(),
-                    final_url: url.to_string(),
-                    title,
-                    text: truncate_chars(text.trim(), max_chars),
-                    content_type: "text/markdown".to_string(),
-                })
-            }
-            // Reader failed too: surface the original plain result.
-            _ => plain,
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some(page) = reader {
+            return Ok(page);
         }
+        // Reader failed too: last rung is a headless browser (when built
+        // with the feature and a chrome binary exists); otherwise surface
+        // the original plain result.
+        if self.browser {
+            if let Ok(page) = crate::browser::BrowserFetch::new()
+                .fetch(url, max_chars)
+                .await
+            {
+                if !page.text.trim().is_empty() {
+                    return Ok(page);
+                }
+            }
+        }
+        plain
     }
 }
 

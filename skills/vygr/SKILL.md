@@ -2,69 +2,67 @@
 name: vygr
 description: Deep, multi-source web research using the vygr CLI (voyager). Use when a task needs exhaustive, well-cited investigation of a topic, such as comparing options, mapping a technology or market landscape, or fact-finding that benefits from multiple independent sources, rather than a single quick lookup.
 license: MIT
+version: 0.9.0
 ---
 
 # Voyager deep research (vygr)
 
 `vygr` is a command-line research tool: it searches the web through provider
-chains (keyless DuckDuckGo by default), fetches and reduces pages to text, and
-can run a full plan-search-synthesize research loop over any configured LLM
-backend, including *your own harness LLM* when invoked with `--llm pi` (or
-`claude` / `codex`).
+chains (keyless DuckDuckGo + OpenAlex by default), fetches and reduces pages
+to text, and runs full plan-search-synthesize research loops over any LLM
+backend — including *your own harness LLM* with `--llm pi` (or `claude` /
+`codex`).
 
 ## Quick lookups
 
 ```sh
 vygr search "rust vs zig wasm benchmarks" --max-results 5
-vygr search "q" --format urls                    # pipe-friendly
 vygr search "q" --extract-top 3 --format json    # results + inlined page content
+vygr search "q" --format jsonl                   # one JSON object per result (pipe-friendly)
 vygr extract https://example.com/page --max-chars 12000
+vygr doctor --format json                        # what works right now (providers, LLM, dirs)
 ```
 
 ## Deep research
 
 ```sh
-vygr plan "question"                       # offline preflight: what will run
-vygr research "question" --llm pi          # reuse the harness LLM
+vygr plan "question"                        # offline preflight: what will run, cost estimate
+vygr research "question" --llm pi           # reuse the harness LLM
 vygr research "question" --llm ollama:qwen3:8b --depth 2..4 --budget-usd 0.50
 ```
 
 Every run leaves an evidence trail under `agents/voyager/<timestamp>-<slug>/`
-(`prompt.md`, `plan.json`, `sources.json`, `answer.md`). Cite those files when
-the user asks where conclusions came from.
+(override location with `--run-dir` or `VGR_RUN_DIR`):
 
-## Research methodology
+- `answer.md` — synthesized report with `[n]` citations
+- `sources.json` — scored sources incl. fetched content; `[n]` indexes into this order
+- `plan.json`, `reflections.json`, `run.json`, `prompt.md` — the full trail
 
-When driving vygr through a full research run, follow this discipline:
-
-1. **Reframe before searching.** Generate sub-queries with genuinely different
-   framings (terminology, domain angle, time period). vygr's planner does this
-   automatically, but check `plan.json` and re-run with adjusted breadth if the
-   framings are redundant.
-2. **Search for disconfirmation.** At least one sub-query should look for
-   evidence *against* the working hypothesis ("X problems", "X vs Y criticism",
-   "X deprecated").
-3. **Treat syndication as one source.** Many outlets repeating one press
-   release is a single evidence chain. `vygr search --all` reports which
-   providers returned each URL; prefer independent origins.
-4. **Reconcile, don't average.** If numbers disagree, compare definitions,
-   units and time periods, and say why they differ instead of splitting the
-   difference.
-5. **Cite by number.** The synthesized answer cites evidence blocks as `[n]`
-   mapping to `sources.json`. Keep those citations when summarizing further.
-6. **Budget explicitly.** Pass `--budget-usd` for expensive backends; vygr
-   skips synthesis and returns sources only if the budget is blown.
+Cite those files when the user asks where conclusions came from. Re-synthesize
+offline with `vygr runs resume <name> --llm <spec>` (no new searches).
 
 ## Notes for agents
 
-- Machine output: `--format json` on every command; diagnostics go to stderr.
-- Exit codes: 0 ok · 2 usage · 3 config/auth · 4 provider/network.
-- `vygr schema` prints a self-describing JSON of all commands and flags.
-- `vygr providers` shows which search backends have credentials; `vygr models`
-  browses the models.dev catalog for `--llm` specs.
+- Machine output: `--format json` on every command (`jsonl` on search);
+  diagnostics go to stderr. Exit codes: 0 ok · 1 internal · 2 usage ·
+  3 config/auth · 4 provider/network.
+- `vygr schema` prints the authoritative interface as JSON (every command,
+  flag, default and choice — derived from the CLI itself).
+- Stream long runs: `vygr research "q" --llm pi --events` emits NDJSON
+  lifecycle events on stdout; the final `report` line carries everything.
+- Keep artifacts out of the user's repo: pass `--run-dir /tmp/vygr-runs`.
 - When you (the harness) already have a capable LLM, prefer `--llm pi` /
-  `--llm claude` / `--llm codex`; vygr will shell out to you and reuse your
-  configured model, keys and session.
+  `--llm claude` / `--llm codex` — vygr shells out and reuses your model,
+  keys and session.
 - As an MCP server (`vygr serve` over stdio) vygr exposes `search`,
   `extract`, `research` and `get_artifact`; page long artifacts with
   `get_artifact` instead of reading whole files into context.
+
+## References (load on demand)
+
+- `references/recipes.md` — copy-paste recipes: compare X vs Y, structured
+  extraction with `--output-schema`, cheap deep dives, artifact paging.
+- `references/methodology.md` — research discipline: reframing,
+  disconfirmation, syndication de-duplication, reconciling conflicts.
+- `references/machine-contract.md` — full flag surface, exit codes, event
+  schema, MCP tools, config precedence.

@@ -7,6 +7,9 @@ authors.workspace = true
 readme = "README.md"
 description = "voyager search and fetch providers"
 
+[features]
+browser = ["dep:chromiumoxide"]
+
 [dependencies]
 vygr-core = { workspace = true }
 reqwest = { workspace = true }
@@ -15,6 +18,7 @@ percent-encoding = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
+chromiumoxide = { version = "0.9", optional = true, default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

@@ -161,6 +161,7 @@ fn request(port: u16, tmp: &tempfile::TempDir) -> ResearchRequest {
         exclude_domains: vec![],
         language: None,
         output_schema: None,
+        parent: None,
     }
 }
 
@@ -184,6 +185,7 @@ async fn full_loop_runs_two_levels_with_reflection_and_cost() {
         Box::new(OwnedLlm(Arc::clone(&scripted))),
         reqwest::Client::new(),
         Some(progress),
+        None,
     )
     .await
     .unwrap();
@@ -217,7 +219,7 @@ async fn full_loop_runs_two_levels_with_reflection_and_cost() {
     // The scripted answer cites real source vocabulary: clean check.
     let verification = report.verification.as_ref().unwrap();
     assert!(verification.checked >= 2);
-    assert!(verification.weak.is_empty());
+    assert_eq!(verification.weak_count(), 0);
     // Level 1 sources recorded their level.
     assert!(report.sources.iter().any(|s| s.level == 1));
     // Artifacts landed in the run directory.
@@ -252,6 +254,7 @@ async fn budget_exhaustion_skips_synthesis_but_keeps_sources() {
         Box::new(OwnedLlm(Arc::clone(&scripted))),
         reqwest::Client::new(),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -264,4 +267,139 @@ async fn budget_exhaustion_skips_synthesis_but_keeps_sources() {
     assert!(!report.sources.is_empty());
     assert_eq!(report.cost_usd, Some(10.0));
     assert!(report.verification.is_none());
+}
+
+#[tokio::test]
+async fn event_sink_receives_structured_lifecycle() {
+    let port = spawn_fake_server().await;
+    let tmp = tempfile::TempDir::new().unwrap();
+    let scripted = Arc::new(ScriptedLlm {
+        calls: AtomicU32::new(0),
+        costs: [0.01, 0.02, 0.04],
+    });
+    let collected = Arc::new(std::sync::Mutex::new(
+        Vec::<vygr_research::ResearchEvent>::new(),
+    ));
+    let sink_events = Arc::clone(&collected);
+    let events: vygr_research::EventSink = Arc::new(move |ev: &vygr_research::ResearchEvent| {
+        sink_events.lock().unwrap().push(ev.clone());
+    });
+
+    let _report = run(
+        request(port, &tmp),
+        Box::new(OwnedLlm(Arc::clone(&scripted))),
+        reqwest::Client::new(),
+        None,
+        Some(events),
+    )
+    .await
+    .unwrap();
+
+    let evs = collected.lock().unwrap();
+    let names: Vec<String> = evs
+        .iter()
+        .map(|e| {
+            serde_json::to_value(e).unwrap()["event"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+    assert_eq!(names.first().map(String::as_str), Some("run_start"));
+    for expected in [
+        "plan",
+        "level_start",
+        "sources_found",
+        "reflection",
+        "synthesis_start",
+        "verified",
+    ] {
+        assert!(
+            names.iter().any(|n| n == expected),
+            "missing event `{expected}` in {names:?}"
+        );
+    }
+    assert_eq!(names.last().map(String::as_str), Some("done"));
+    // Every event serializes to a single NDJSON line tagged with its name.
+    for ev in evs.iter() {
+        let line = serde_json::to_string(ev).unwrap();
+        assert!(line.starts_with("{\"event\":\""), "bad NDJSON: {line}");
+    }
+    // The done event carries cost and the run directory.
+    let done = serde_json::to_value(evs.last().unwrap()).unwrap();
+    assert_eq!(done["cost_usd"], serde_json::json!(0.07));
+    assert!(done["run_dir"].as_str().is_some());
+}
+
+#[tokio::test]
+async fn followup_run_seeds_parent_context_and_skips_visited_urls() {
+    let port = spawn_fake_server().await;
+    let tmp = tempfile::TempDir::new().unwrap();
+    let scripted = Arc::new(ScriptedLlm {
+        calls: AtomicU32::new(0),
+        costs: [0.01, 0.02, 0.04],
+    });
+    let parent = run(
+        request(port, &tmp),
+        Box::new(OwnedLlm(Arc::clone(&scripted))),
+        reqwest::Client::new(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(!parent.sources.is_empty());
+
+    // Follow-up with the parent's evidence: level 0 finds no fresh URLs
+    // (all parent URLs are already visited), so it stops immediately and
+    // synthesizes from the inherited evidence.
+    let scripted2 = Arc::new(ScriptedLlm {
+        calls: AtomicU32::new(0),
+        costs: [0.01, 0.02, 0.04],
+    });
+    let parent_name = std::path::Path::new(parent.run_dir.as_ref().unwrap())
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    let parent_ctx = vygr_research::ParentContext {
+        run_name: parent_name.clone(),
+        notes: parent.reflections.clone(),
+        sources: parent.sources.clone(),
+    };
+    let mut req = request(port, &tmp);
+    req.query = "what about wasm gc engine support?".into();
+    req.parent = Some(parent_ctx);
+    let report = run(
+        req,
+        Box::new(OwnedLlm(Arc::clone(&scripted2))),
+        reqwest::Client::new(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // Every parent source is inherited into the follow-up's evidence.
+    for s in &parent.sources {
+        assert!(
+            report.sources.iter().any(|r| r.url == s.url),
+            "parent source {} missing from follow-up",
+            s.url
+        );
+    }
+    // The manifest records the parent link; a parent.json marker exists.
+    let dir = report.run_dir.as_ref().unwrap();
+    let manifest: vygr_research::RunManifest = serde_json::from_str(
+        &std::fs::read_to_string(std::path::Path::new(dir).join("run.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        manifest.parent.as_deref(),
+        Some(parent_name.as_str()),
+        "parent field was: {:?}",
+        manifest.parent
+    );
+    assert!(std::path::Path::new(dir).join("parent.json").exists());
+    assert!(report.answer.as_deref().unwrap().contains("benchmark"));
 }

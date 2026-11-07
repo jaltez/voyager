@@ -23,7 +23,14 @@ done
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 case "$OS-$ARCH" in
-    Linux-x86_64) TARGET="x86_64-unknown-linux-gnu" ;;
+    Linux-x86_64)
+        # musl hosts cannot run glibc binaries; the static target exists
+        # since v0.8.0.
+        if ldd --version 2>/dev/null | grep -q musl; then
+            TARGET="x86_64-unknown-linux-musl"
+        else
+            TARGET="x86_64-unknown-linux-gnu"
+        fi ;;
     Linux-aarch64) TARGET="aarch64-unknown-linux-gnu" ;;
     Darwin-x86_64) TARGET="x86_64-apple-darwin" ;;
     Darwin-arm64) TARGET="aarch64-apple-darwin" ;;

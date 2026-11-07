@@ -160,7 +160,7 @@ impl CachedSearchProvider {
     fn entry_path(&self, query: &SearchQuery) -> Option<PathBuf> {
         let dir = self.dir.as_ref()?;
         let fingerprint = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}\n{}",
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
             self.inner.id(),
             normalize_query(&query.query),
             query.max_results,
@@ -168,6 +168,7 @@ impl CachedSearchProvider {
             query.include_domains.join(","),
             query.exclude_domains.join(","),
             query.language.clone().unwrap_or_default(),
+            query.safe_search.map(|s| s.to_string()).unwrap_or_default(),
         );
         let mut hasher = Sha256::new();
         hasher.update(fingerprint.as_bytes());
@@ -420,5 +421,24 @@ mod tests {
         let c = p.entry_path(&SearchQuery::new("rust language", 3)).unwrap();
         assert_eq!(a, b);
         assert_ne!(a, c);
+    }
+
+    /// A safe search must never serve an unsafe cached result: unset,
+    /// off and on each get their own entry.
+    #[tokio::test]
+    async fn different_safe_search_is_a_miss() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let (p, stats, calls) = setup(&tmp, CacheOptions::default());
+        p.search(&SearchQuery::new("rust language", 5))
+            .await
+            .unwrap();
+        p.search(&SearchQuery::new("rust language", 5).with_safe_search(Some(false)))
+            .await
+            .unwrap();
+        p.search(&SearchQuery::new("rust language", 5).with_safe_search(Some(true)))
+            .await
+            .unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        assert_eq!(stats.snapshot(), (0, 3));
     }
 }

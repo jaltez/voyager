@@ -105,7 +105,8 @@ impl Default for PolitenessConf {
             max_retries: 2,
             // DuckDuckGo's HTML endpoint serves anti-bot 202 pages when
             // queried faster than roughly one request per second.
-            overrides: BTreeMap::from([("ddgs".to_string(), 1_200)]),
+            // arXiv's API asks for ~3s spacing as a courtesy.
+            overrides: BTreeMap::from([("ddgs".to_string(), 1_200), ("arxiv".to_string(), 3_000)]),
         }
     }
 }
@@ -151,15 +152,151 @@ impl SearchStackConf {
 }
 
 /// Raw file representation; sections are optional so we can overlay files
-/// without resetting untouched sections to defaults.
+/// without resetting untouched sections to defaults. Sections carry only
+/// the fields actually present (`*Overlay`) so that a project file setting
+/// `breadth` no longer resets user-file `depth_max` back to defaults.
 #[derive(Debug, Default, Deserialize)]
 struct FileConfig {
     default_provider: Option<String>,
     providers: Option<BTreeMap<String, ProviderConf>>,
-    llm: Option<LlmConf>,
-    research: Option<ResearchConf>,
-    politeness: Option<PolitenessConf>,
-    cache: Option<CacheConf>,
+    llm: Option<LlmOverlay>,
+    research: Option<ResearchOverlay>,
+    politeness: Option<PolitenessOverlay>,
+    cache: Option<CacheOverlay>,
+}
+
+/// Present-fields-only view of `[llm]`.
+#[derive(Debug, Default, Deserialize)]
+struct LlmOverlay {
+    backend: Option<String>,
+    model: Option<String>,
+    base_url: Option<String>,
+    api_key_env: Option<String>,
+}
+
+impl LlmOverlay {
+    fn apply(self, to: &mut LlmConf) {
+        if self.backend.is_some() {
+            to.backend = self.backend;
+        }
+        if self.model.is_some() {
+            to.model = self.model;
+        }
+        if self.base_url.is_some() {
+            to.base_url = self.base_url;
+        }
+        if self.api_key_env.is_some() {
+            to.api_key_env = self.api_key_env;
+        }
+    }
+}
+
+/// Present-fields-only view of `[research]`.
+#[derive(Debug, Default, Deserialize)]
+struct ResearchOverlay {
+    depth_min: Option<u32>,
+    depth_max: Option<u32>,
+    breadth: Option<u32>,
+    budget_usd: Option<f64>,
+    max_results_per_query: Option<usize>,
+    fetch_top: Option<usize>,
+    context_max_chars: Option<usize>,
+    run_dir: Option<String>,
+    time_range: Option<String>,
+    include_domains: Option<Vec<String>>,
+    exclude_domains: Option<Vec<String>>,
+    language: Option<String>,
+}
+
+impl ResearchOverlay {
+    fn apply(self, to: &mut ResearchConf) {
+        if let Some(v) = self.depth_min {
+            to.depth_min = v;
+        }
+        if let Some(v) = self.depth_max {
+            to.depth_max = v;
+        }
+        if let Some(v) = self.breadth {
+            to.breadth = v;
+        }
+        if let Some(v) = self.budget_usd {
+            to.budget_usd = Some(v);
+        }
+        if let Some(v) = self.max_results_per_query {
+            to.max_results_per_query = v;
+        }
+        if let Some(v) = self.fetch_top {
+            to.fetch_top = v;
+        }
+        if let Some(v) = self.context_max_chars {
+            to.context_max_chars = v;
+        }
+        if let Some(v) = self.run_dir {
+            to.run_dir = Some(v);
+        }
+        if let Some(v) = self.time_range {
+            to.time_range = Some(v);
+        }
+        if let Some(v) = self.include_domains {
+            to.include_domains = v;
+        }
+        if let Some(v) = self.exclude_domains {
+            to.exclude_domains = v;
+        }
+        if let Some(v) = self.language {
+            to.language = Some(v);
+        }
+    }
+}
+
+/// Present-fields-only view of `[politeness]`.
+#[derive(Debug, Default, Deserialize)]
+struct PolitenessOverlay {
+    min_interval_ms_default: Option<u64>,
+    max_retries: Option<u32>,
+    overrides: Option<BTreeMap<String, u64>>,
+}
+
+impl PolitenessOverlay {
+    fn apply(self, to: &mut PolitenessConf) {
+        if let Some(v) = self.min_interval_ms_default {
+            to.min_interval_ms_default = v;
+        }
+        if let Some(v) = self.max_retries {
+            to.max_retries = v;
+        }
+        if let Some(overrides) = self.overrides {
+            // Extend, so user overrides add to (or replace) the ddgs
+            // default instead of dropping it.
+            to.overrides.extend(overrides);
+        }
+    }
+}
+
+/// Present-fields-only view of `[cache]`.
+#[derive(Debug, Default, Deserialize)]
+struct CacheOverlay {
+    enabled: Option<bool>,
+    ttl_news_secs: Option<u64>,
+    ttl_standard_secs: Option<u64>,
+    ttl_reference_secs: Option<u64>,
+}
+
+impl CacheOverlay {
+    fn apply(self, to: &mut CacheConf) {
+        if let Some(v) = self.enabled {
+            to.enabled = v;
+        }
+        if let Some(v) = self.ttl_news_secs {
+            to.ttl_news_secs = v;
+        }
+        if let Some(v) = self.ttl_standard_secs {
+            to.ttl_standard_secs = v;
+        }
+        if let Some(v) = self.ttl_reference_secs {
+            to.ttl_reference_secs = v;
+        }
+    }
 }
 
 impl Config {
@@ -209,16 +346,16 @@ impl Config {
                     self.providers.extend(providers);
                 }
                 if let Some(llm) = file.llm {
-                    self.llm = llm;
+                    llm.apply(&mut self.llm);
                 }
                 if let Some(research) = file.research {
-                    self.research = research;
+                    research.apply(&mut self.research);
                 }
                 if let Some(politeness) = file.politeness {
-                    self.politeness = politeness;
+                    politeness.apply(&mut self.politeness);
                 }
                 if let Some(cache) = file.cache {
-                    self.cache = cache;
+                    cache.apply(&mut self.cache);
                 }
                 self.sources.push(path.to_path_buf());
             }
@@ -292,7 +429,7 @@ mod tests {
             toml::from_str("default_provider = \"brave\"\n[research]\nbreadth = 5\n").unwrap();
         assert_eq!(file.default_provider.as_deref(), Some("brave"));
         assert!(file.llm.is_none());
-        assert_eq!(file.research.unwrap().breadth, 5);
+        assert_eq!(file.research.unwrap().breadth, Some(5));
     }
 
     #[test]
@@ -308,10 +445,37 @@ mod tests {
         assert_eq!(p.min_interval_ms_default, 250);
         assert_eq!(p.max_retries, 2);
         assert_eq!(p.overrides.get("ddgs"), Some(&1_200));
-        // A file section replaces the section wholesale, so overrides
-        // supplied by the user drop the ddgs default (documented behavior).
+        // A file section only overrides the fields it actually sets; the
+        // ddgs spacing default survives partial politeness overrides.
         let file: FileConfig = toml::from_str("[politeness]\nmax_retries = 0\n").unwrap();
-        assert_eq!(file.politeness.unwrap().max_retries, 0);
+        let overlay = file.politeness.unwrap();
+        assert_eq!(overlay.max_retries, Some(0));
+        assert_eq!(overlay.min_interval_ms_default, None);
+        assert!(overlay.overrides.is_none());
+    }
+
+    #[test]
+    fn merge_preserves_fields_from_other_layers() {
+        // User layer sets depth and breadth; project layer only touches
+        // breadth. The depth setting must survive the overlay.
+        let mut cfg = Config::default();
+        cfg.research.depth_max = 6;
+        cfg.research.breadth = 5;
+        let file: FileConfig = toml::from_str("[research]\nbreadth = 2\n").unwrap();
+        file.research.unwrap().apply(&mut cfg.research);
+        assert_eq!(cfg.research.depth_max, 6);
+        assert_eq!(cfg.research.breadth, 2);
+
+        // Politeness overrides extend instead of clobbering the ddgs
+        // spacing default.
+        let mut cfg2 = Config::default();
+        let file: FileConfig =
+            toml::from_str("[politeness]\nmax_retries = 0\n[politeness.overrides]\nbrave = 400\n")
+                .unwrap();
+        file.politeness.unwrap().apply(&mut cfg2.politeness);
+        assert_eq!(cfg2.politeness.max_retries, 0);
+        assert_eq!(cfg2.politeness.overrides.get("ddgs"), Some(&1_200));
+        assert_eq!(cfg2.politeness.overrides.get("brave"), Some(&400));
     }
 
     #[test]
@@ -323,6 +487,6 @@ mod tests {
             (300, 3_600, 86_400)
         );
         let file: FileConfig = toml::from_str("[cache]\nenabled = false\n").unwrap();
-        assert!(!file.cache.unwrap().enabled);
+        assert_eq!(file.cache.unwrap().enabled, Some(false));
     }
 }

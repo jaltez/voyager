@@ -15,27 +15,41 @@ use crate::orchestrator::Source;
 /// Below this fraction of shared content words a claim is unsupported.
 const SUPPORT_THRESHOLD: f32 = 0.2;
 
+/// One checked claim: the sentence, what it cited, how well the stored
+/// evidence supports it (ADR-0017 claim-level evidence table).
 #[derive(Debug, Clone, Serialize)]
-pub struct WeakClaim {
+pub struct ClaimRecord {
     /// The citation number used by the claim.
     pub citation: usize,
+    /// The claim with citation markers stripped (truncated for size).
+    pub claim: String,
+    pub cited_url: String,
     /// Best-matching source (1-based); differs from `citation` on
     /// suspected misattribution.
     pub best_source: usize,
     pub overlap: f32,
-    pub excerpt: String,
-    pub cited_url: String,
+    /// `"supported"` or `"weak"`.
+    pub verdict: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Verification {
     pub checked: usize,
-    pub weak: Vec<WeakClaim>,
+    /// Every checked claim, in answer order (written as `claims.json`).
+    pub claims: Vec<ClaimRecord>,
 }
 
 impl Verification {
+    pub fn weak(&self) -> impl Iterator<Item = &ClaimRecord> {
+        self.claims.iter().filter(|c| c.verdict == "weak")
+    }
+
+    pub fn weak_count(&self) -> usize {
+        self.claims.iter().filter(|c| c.verdict == "weak").count()
+    }
+
     pub fn is_clean(&self) -> bool {
-        self.weak.is_empty()
+        self.weak_count() == 0
     }
 }
 
@@ -114,7 +128,7 @@ pub fn verify(answer: &str, sources: &[Source]) -> Verification {
         .collect();
 
     let mut checked = 0;
-    let mut weak = Vec::new();
+    let mut claims = Vec::new();
     for (citation, sentence) in cited_sentences(answer) {
         if citation == 0 || citation > sources.len() {
             continue;
@@ -133,17 +147,21 @@ pub fn verify(answer: &str, sources: &[Source]) -> Verification {
                 best = (idx, score);
             }
         }
-        if best.1 < SUPPORT_THRESHOLD {
-            weak.push(WeakClaim {
-                citation,
-                best_source: best.0 + 1,
-                overlap: best.1,
-                excerpt: truncate(&claim_text, 120),
-                cited_url: sources[citation - 1].url.clone(),
-            });
-        }
+        let verdict = if best.1 < SUPPORT_THRESHOLD {
+            "weak"
+        } else {
+            "supported"
+        };
+        claims.push(ClaimRecord {
+            citation,
+            claim: truncate(&claim_text, 160),
+            cited_url: sources[citation - 1].url.clone(),
+            best_source: best.0 + 1,
+            overlap: best.1,
+            verdict,
+        });
     }
-    Verification { checked, weak }
+    Verification { checked, claims }
 }
 
 fn strip_citations(text: &str) -> String {
@@ -181,12 +199,12 @@ pub fn verification_section(verification: &Verification) -> String {
     out.push_str(&format!(
         "({} checked, {} weakly supported):\n",
         verification.checked,
-        verification.weak.len()
+        verification.weak_count()
     ));
-    for w in &verification.weak {
+    for w in verification.weak() {
         out.push_str(&format!(
             "- `[{}]` best match [{}/{}] overlap {:.2}: {}\n",
-            w.citation, w.best_source, w.citation, w.overlap, w.excerpt
+            w.citation, w.best_source, w.citation, w.overlap, w.claim
         ));
     }
     out.push_str("\nTreat flagged claims with caution or re-run with more depth.\n");
@@ -206,6 +224,9 @@ mod tests {
             score: 1.0,
             level: 0,
             content: Some(content.to_string()),
+            cluster_id: None,
+            origin_count: None,
+            best_quote: None,
         }
     }
 
@@ -219,9 +240,14 @@ mod tests {
 Secret moon bases were discovered orbiting Jupiter last Tuesday [1].";
         let v = verify(answer, &sources);
         assert_eq!(v.checked, 2);
-        assert_eq!(v.weak.len(), 1);
-        assert!(v.weak[0].excerpt.contains("moon"));
+        assert_eq!(v.weak_count(), 1);
+        let weak = v.weak().next().unwrap();
+        assert!(weak.claim.contains("moon"));
+        assert_eq!(weak.verdict, "weak");
         assert!(!v.is_clean());
+        // The supported claim is recorded too (claims.json is complete).
+        assert_eq!(v.claims.len(), 2);
+        assert!(v.claims.iter().any(|c| c.verdict == "supported"));
     }
 
     #[test]
@@ -231,7 +257,7 @@ Secret moon bases were discovered orbiting Jupiter last Tuesday [1].";
             source("zig", "Zig has comptime execution"),
         ];
         let v = verify("Zig has comptime execution [1].", &sources);
-        assert!(v.weak.is_empty());
+        assert_eq!(v.weak_count(), 0);
         // Even though the "right" citation was [2], the claim is supported.
     }
 
