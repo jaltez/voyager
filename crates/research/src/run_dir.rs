@@ -1,5 +1,5 @@
 //! Run artifact directories (ADR-0009): every research run leaves an
-//! evidence trail on disk under `./agents/voyager/<timestamp>-<slug>/`:
+//! evidence trail on disk under `./.voyager/<timestamp>-<slug>/`:
 //! `prompt.md`, `plan.json`, `sources.json` and `answer.md`.
 
 use std::fs;
@@ -11,7 +11,7 @@ use chrono::Utc;
 pub fn create_run_dir(base: Option<&str>, query: &str) -> io::Result<PathBuf> {
     let base = base
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("agents").join("voyager"));
+        .unwrap_or_else(crate::runs::default_base);
     let dir = base.join(format!(
         "{}-{}",
         Utc::now().format("%Y%m%d-%H%M%S"),

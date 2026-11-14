@@ -16,7 +16,7 @@ pub struct Args {
     pub run: String,
 
     /// Run-dir base to resolve the run against (default: config or
-    /// ./agents/voyager)
+    /// ./.voyager)
     #[arg(long)]
     pub run_dir: Option<String>,
 

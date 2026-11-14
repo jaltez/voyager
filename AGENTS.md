@@ -44,7 +44,7 @@ rustfmt.toml: default behavior only, stable toolchain
   the schema by hand.
 - **Run artifacts (ADR-0009):** every research run writes
   `prompt.md`, `plan.json`, `reflections.json`, `sources.json`,
-  `answer.md`, `run.json` under the run dir (default `./agents/voyager`,
+  `answer.md`, `run.json` under the run dir (default `./.voyager`,
   override `--run-dir` / `VGR_RUN_DIR` / `[research] run_dir`).
 - **Skill copies must not drift:** `crates/cli/skill/SKILL.md` (+ its
   `references/`) is canonical; `skills/vygr/` mirrors it byte-for-byte
@@ -71,7 +71,7 @@ rustfmt.toml: default behavior only, stable toolchain
 
 ## Machine use of this repo's own tool
 
-Run research from a scratch dir if you do not want `agents/voyager/` in
+Run research from a scratch dir if you do not want `.voyager/` in
 the tree, or pass `--run-dir /tmp/...`. `vygr doctor` and `vygr schema`
 are the fastest way to see what the tool can do from a fresh checkout:
 `cargo run -p vygr -- doctor --format json`.

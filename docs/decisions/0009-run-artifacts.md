@@ -1,7 +1,7 @@
 # ADR 0009: Run artifacts (the evidence trail)
 
 - **Date:** 2026-10-01
-- **Status:** Accepted
+- **Status:** Accepted (default base moved from `agents/voyager/` to `.voyager/`, 2026-11)
 
 ## Context
 
@@ -12,7 +12,7 @@ metadata in report frontmatter for the same reason.
 
 ## Decision
 
-Every `vygr research` run creates `agents/voyager/<timestamp>-<slug>/`
+Every `vygr research` run creates `.voyager/<timestamp>-<slug>/`
 (overridable via `[research] run_dir`):
 
 ```
@@ -30,5 +30,6 @@ Citations in `answer.md` (`[n]`) index into `sources.json`.
 - Answers are verifiable: every claim traces to a fetched page on disk.
 - A future MCP server pages summaries and points at these files instead of
   dumping evidence into the agent's context.
-- Directories accumulate in the project; `agents/` is gitignored by default
-  and a `vygr runs prune` command is an obvious later addition.
+- Directories accumulate in the project; the `.voyager/` dotdir is
+  typically gitignored and a `vygr runs prune` command is an obvious
+  later addition.

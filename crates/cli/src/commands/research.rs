@@ -53,7 +53,7 @@ pub struct Args {
     #[arg(long)]
     pub brief_only: bool,
 
-    /// Base directory for this run's artifacts (default: ./agents/voyager
+    /// Base directory for this run's artifacts (default: ./.voyager
     /// or [research] run_dir; env VGR_RUN_DIR)
     #[arg(long)]
     pub run_dir: Option<String>,

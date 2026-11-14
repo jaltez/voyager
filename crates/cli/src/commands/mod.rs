@@ -57,7 +57,7 @@ pub(crate) fn run_dir_base(cfg: &Config, override_dir: Option<&str>) -> PathBuf 
         .map(PathBuf::from)
         .or_else(|| std::env::var("VGR_RUN_DIR").ok().map(PathBuf::from))
         .or_else(|| cfg.research.run_dir.clone().map(PathBuf::from))
-        .unwrap_or_else(|| PathBuf::from("./agents/voyager"))
+        .unwrap_or_else(|| PathBuf::from("./.voyager"))
 }
 
 /// Shared execution + output path for every command that starts a

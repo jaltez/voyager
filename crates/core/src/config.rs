@@ -56,7 +56,7 @@ pub struct ResearchConf {
     pub max_results_per_query: usize,
     pub fetch_top: usize,
     pub context_max_chars: usize,
-    /// Base directory for run artifacts; defaults to `./agents/voyager`.
+    /// Base directory for run artifacts; defaults to `./.voyager`.
     pub run_dir: Option<String>,
     /// Freshness filter for research searches ("day|week|month|year").
     pub time_range: Option<String>,
@@ -401,7 +401,7 @@ breadth = 3
 budget_usd = 0.50
 max_results_per_query = 5
 fetch_top = 4
-# run_dir = "./agents/voyager"
+# run_dir = "/tmp/vygr-runs"
 
 [politeness]
 min_interval_ms_default = 250

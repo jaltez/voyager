@@ -31,7 +31,7 @@ vygr research "question" --llm pi           # reuse the harness LLM
 vygr research "question" --llm ollama:qwen3:8b --depth 2..4 --budget-usd 0.50
 ```
 
-Every run leaves an evidence trail under `agents/voyager/<timestamp>-<slug>/`
+Every run leaves an evidence trail under `.voyager/<timestamp>-<slug>/`
 (override location with `--run-dir` or `VGR_RUN_DIR`):
 
 - `answer.md` — synthesized report with `[n]` citations

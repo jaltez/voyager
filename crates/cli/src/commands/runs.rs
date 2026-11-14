@@ -17,7 +17,7 @@ pub struct Args {
     #[arg(long, value_enum, global = true, default_value = "table")]
     pub format: GenericFormat,
 
-    /// Run-dir base to operate on (default: config or ./agents/voyager;
+    /// Run-dir base to operate on (default: config or ./.voyager;
     /// env VGR_RUN_DIR)
     #[arg(long, global = true)]
     pub run_dir: Option<String>,

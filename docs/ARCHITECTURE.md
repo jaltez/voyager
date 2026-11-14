@@ -90,7 +90,7 @@ synthesis emphasizes what changed (ADR-0018).
 Every run writes an artifact directory (ADR-0009):
 
 ```
-agents/voyager/20261001-142233-rust-vs-zig/
+.voyager/20261001-142233-rust-vs-zig/
 ├── prompt.md        the question + run parameters
 ├── plan.json        sub-queries and chosen depth
 ├── reflections.json distilled notes, follow-ups, disagreements per level
@@ -102,7 +102,7 @@ agents/voyager/20261001-142233-rust-vs-zig/
 └── eval.json        scorecard (written by `vygr eval`)
 ```
 
-The base directory is `./agents/voyager` by default, overridable per run
+The base directory is `./.voyager` by default, overridable per run
 with `--run-dir`, the `VGR_RUN_DIR` env var, or `[research] run_dir`.
 `vygr runs list|show|resume` reads these manifests; resume re-synthesizes
 a finished run offline from its saved evidence.

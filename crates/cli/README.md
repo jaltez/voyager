@@ -45,7 +45,7 @@ cargo install --path crates/cli --bin vygr  # from a checkout
 |---|---|
 | `vygr search <q>` | provider-chain search; `--all` concurrent fan-out with dedup, `--extract-top N` inlines content, `--format jsonl` streams one JSON per result, `--time-range day\|week\|month\|year`, `--include-domains`/`--exclude-domains`, `--safe-search` (Tavily only; other providers ignore it), `--no-cache`/`--cache-ttl` |
 | `vygr extract <urls>` | fetch pages, reduce to plain text |
-| `vygr research <q>` | iterative loop: plan → levels (search → fetch → BM25 → reflect) → synthesize with citation verification; `--mode quick\|standard\|deep\|exhaustive`, `--depth 2..4`, `--breadth`, `--budget-usd`, `--output-schema <file>`, `--events` (NDJSON lifecycle stream), `--brief-only`, `--run-dir <path>`, `--language`, `--llm <spec>`; artifacts under `agents/voyager/<run>/` |
+| `vygr research <q>` | iterative loop: plan → levels (search → fetch → BM25 → reflect) → synthesize with citation verification; `--mode quick\|standard\|deep\|exhaustive`, `--depth 2..4`, `--breadth`, `--budget-usd`, `--output-schema <file>`, `--events` (NDJSON lifecycle stream), `--brief-only`, `--run-dir <path>`, `--language`, `--llm <spec>`; artifacts under `.voyager/<run>/` |
 | `vygr plan <q>` | offline preflight of a research run |
 | `vygr providers` | search providers, required env vars, readiness |
 | `vygr models [provider]` | browse the models.dev catalog and pricing |

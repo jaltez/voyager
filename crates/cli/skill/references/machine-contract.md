@@ -60,7 +60,7 @@ was too narrow — reframe rather than retry verbatim.
   report. Use this to render progress or kill long runs early.
 - `--brief-only` — print only the report's Summary section.
 - `--run-dir <path>` (or `VGR_RUN_DIR`) — where artifacts land; default
-  `./agents/voyager`.
+  `./.voyager`.
 
 ## Runs and artifacts
 

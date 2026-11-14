@@ -38,7 +38,7 @@ pub struct RunInfo {
 
 /// Default base directory for run artifacts.
 pub fn default_base() -> PathBuf {
-    PathBuf::from("agents").join("voyager")
+    PathBuf::from(".voyager")
 }
 
 /// List runs under `base`, newest first.

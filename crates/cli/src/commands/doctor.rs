@@ -327,7 +327,7 @@ fn run_fs_checks(cfg: &Config, checks: &mut Vec<Check>) {
         .research
         .run_dir
         .clone()
-        .unwrap_or_else(|| "./agents/voyager".to_string());
+        .unwrap_or_else(|| "./.voyager".to_string());
     let run_path = Path::new(&run_dir);
     match probe_dir_writable(run_path) {
         Ok(()) if run_path.exists() => checks.push(check("run_dir", Status::Ok, run_dir.clone())),

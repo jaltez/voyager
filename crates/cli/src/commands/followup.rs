@@ -50,7 +50,7 @@ pub struct Args {
     pub brief_only: bool,
 
     /// Run-dir base to resolve the parent against (default: config or
-    /// ./agents/voyager)
+    /// ./.voyager)
     #[arg(long)]
     pub run_dir: Option<String>,
 

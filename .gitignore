@@ -3,4 +3,12 @@
 .env
 .env.*
 .zcodeignore
+
+# agents
+.pi/
+.omp/
+.amp/
 .zcode/
+.opencode/
+.codegraph/
+.voyager/

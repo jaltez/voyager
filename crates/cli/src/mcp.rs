@@ -971,7 +971,7 @@ mod tests {
     async fn runs_discovery_and_paging_over_tools() {
         let s = server();
         let tmp = tempfile::TempDir::new().unwrap();
-        let run_dir = tmp.path().join("agents/voyager/20261106-120000-demo-run");
+        let run_dir = tmp.path().join(".voyager/20261106-120000-demo-run");
         std::fs::create_dir_all(&run_dir).unwrap();
         std::fs::write(
             run_dir.join("answer.md"),
@@ -1024,7 +1024,7 @@ mod tests {
     async fn resources_list_and_read_run_artifacts() {
         let s = server();
         let tmp = tempfile::TempDir::new().unwrap();
-        let run_dir = tmp.path().join("agents/voyager/20261106-130000-res-run");
+        let run_dir = tmp.path().join(".voyager/20261106-130000-res-run");
         std::fs::create_dir_all(&run_dir).unwrap();
         std::fs::write(run_dir.join("answer.md"), "# hello\n").unwrap();
         std::fs::write(run_dir.join("claims.json"), "[]").unwrap();
@@ -1070,7 +1070,7 @@ mod tests {
     async fn resources_read_truncates_on_a_char_boundary() {
         let s = server();
         let tmp = tempfile::TempDir::new().unwrap();
-        let run_dir = tmp.path().join("agents/voyager/20261107-010000-utf8-run");
+        let run_dir = tmp.path().join(".voyager/20261107-010000-utf8-run");
         std::fs::create_dir_all(&run_dir).unwrap();
         // One 3-byte CJK character straddles the PAGE_MAX byte boundary:
         // truncating at the raw byte cap would panic.
@@ -1145,7 +1145,7 @@ mod tests {
         s.config.providers = providers;
 
         let tmp = tempfile::TempDir::new().unwrap();
-        let run_dir = tmp.path().join("agents/voyager/20261107-020000-conf-run");
+        let run_dir = tmp.path().join(".voyager/20261107-020000-conf-run");
         std::fs::create_dir_all(&run_dir).unwrap();
         std::fs::write(run_dir.join("answer.md"), "# hi\n").unwrap();
         std::fs::write(

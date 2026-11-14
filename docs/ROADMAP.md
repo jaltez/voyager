@@ -236,6 +236,12 @@ Design fixed by
 - [x] Browser fetch rung validated against real Chrome (ADR-0019's
       acceptance test run; renders example.com end-to-end)
 
+## Unreleased
+
+- [x] Default run-artifact base moved from `agents/voyager/` to
+      `.voyager/` (`--run-dir`, `VGR_RUN_DIR`, `[research] run_dir`
+      overrides unchanged)
+
 ## Deferred (researched, low priority)
 
 - [ ] Full OAuth Resource-Server support for the MCP HTTP server (the

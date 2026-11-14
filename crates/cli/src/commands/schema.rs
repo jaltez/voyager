@@ -123,7 +123,7 @@ fn machine_contract() -> serde_json::Value {
 
 fn artifacts() -> serde_json::Value {
     serde_json::json!({
-        "run_dir": "agents/voyager/<UTC-timestamp>-<slug>/ (override: --run-dir, VGR_RUN_DIR, or [research] run_dir)",
+        "run_dir": ".voyager/<UTC-timestamp>-<slug>/ (override: --run-dir, VGR_RUN_DIR, or [research] run_dir)",
         "files": {
             "prompt.md": "the exact prompts issued to the LLM",
             "plan.json": "planned sub-queries and depth",
