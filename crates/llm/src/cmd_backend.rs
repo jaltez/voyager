@@ -42,11 +42,10 @@ impl LlmClient for CmdLlm {
             .map_err(|e| VygrError::Config(format!("cmd: cannot spawn: {e}")))?;
         if let Some(mut stdin) = child.stdin.take() {
             use tokio::io::AsyncWriteExt as _;
-            stdin
-                .write_all(prompt.as_bytes())
-                .await
-                .map_err(VygrError::Io)?;
-            stdin.shutdown().await.map_err(VygrError::Io)?;
+            // A command that fails fast exits before reading its prompt; the
+            // broken pipe is not the error, the exit status and stderr are.
+            let _ = stdin.write_all(prompt.as_bytes()).await;
+            let _ = stdin.shutdown().await;
         }
         let out = child.wait_with_output().await.map_err(VygrError::Io)?;
         if !out.status.success() {
@@ -115,8 +114,14 @@ mod tests {
 
     #[tokio::test]
     async fn failing_commands_surface_stderr() {
-        let llm = CmdLlm::new("echo boom >&2; exit 3");
-        let err = llm.complete(&request()).await.unwrap_err();
+        // The command never reads its prompt and closes its end of the pipe
+        // at once, so a prompt larger than the pipe buffer (64 KiB on Linux)
+        // cannot be written in full whatever the timing: the command's exit
+        // status and stderr are still the error, not the broken pipe.
+        let llm = CmdLlm::new("exec 0<&-; echo boom >&2; exit 3");
+        let mut req = request();
+        req.messages[1].content = "x".repeat(3 * 64 * 1024);
+        let err = llm.complete(&req).await.unwrap_err();
         assert!(err.to_string().contains("boom"), "{err}");
     }
 

@@ -239,6 +239,13 @@ Design fixed by
       `.voyager/` (`--run-dir`, `VGR_RUN_DIR`, `[research] run_dir`
       overrides unchanged)
 
+## Unreleased
+
+- [x] Fast-failing harness (`pi`/`claude`/`codex`) and `cmd:` backends
+      report the command's stderr; a prompt written to a stdin the
+      command already closed is no longer a broken-pipe error (which the
+      harness backend classified as retriable)
+
 ## Deferred (researched, low priority)
 
 - [ ] Full OAuth Resource-Server support for the MCP HTTP server (the

@@ -144,15 +144,12 @@ use --llm pi, --llm claude or an API backend instead",
             ))
         })?;
 
-        if child.stdin.is_some() {
-            if let Some(mut stdin) = child.stdin.take() {
-                stdin
-                    .write_all(prompt.as_bytes())
-                    .await
-                    .map_err(|e| VygrError::Network(format!("writing to {}: {e}", self.program)))?;
-                // Dropping closes the pipe so the harness sees EOF.
-                drop(stdin);
-            }
+        if let Some(mut stdin) = child.stdin.take() {
+            // A harness that fails fast (bad flag, expired login) exits
+            // before reading its prompt; the broken pipe is not the error,
+            // the exit status and stderr are. Dropping closes the pipe so
+            // the harness sees EOF.
+            let _ = stdin.write_all(prompt.as_bytes()).await;
         }
 
         let output = child
@@ -242,6 +239,32 @@ mod tests {
             resp.content,
             "System instructions:\nsys\n\nthe actual question"
         );
+    }
+
+    #[tokio::test]
+    async fn failing_harness_surfaces_stderr_without_reading_the_prompt() {
+        // A harness that fails fast (bad flag, expired login) exits before
+        // reading its prompt. The prompt below exceeds the pipe buffer (64 KiB
+        // on Linux) and the harness closes its end at once, so the write ends
+        // in a broken pipe whatever the timing: the exit status and stderr
+        // are the error, and a deterministic failure must not be retriable.
+        let llm = HarnessLlm::new(
+            "sh",
+            &["-c", "exec 0<&-; echo boom >&2; exit 3", "sim"],
+            PromptChannel::Stdin(STDIN_TASK),
+            OutputMode::Plain,
+        );
+        let err = llm
+            .complete(&CompletionRequest {
+                messages: vec![ChatMessage::user("x".repeat(3 * 64 * 1024))],
+                max_tokens: None,
+                temperature: None,
+                json_object: false,
+            })
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("boom"), "{err}");
+        assert!(!err.is_retriable(), "{err}");
     }
 
     #[tokio::test]
