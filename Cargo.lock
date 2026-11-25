@@ -2620,7 +2620,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vygr"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "clap",
  "dirs",
@@ -2642,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "vygr-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "dirs",
@@ -2655,7 +2655,7 @@ dependencies = [
 
 [[package]]
 name = "vygr-llm"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "reqwest 0.12.28",
@@ -2668,7 +2668,7 @@ dependencies = [
 
 [[package]]
 name = "vygr-providers"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "chromiumoxide",
@@ -2689,7 +2689,7 @@ dependencies = [
 
 [[package]]
 name = "vygr-research"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-trait",
  "chrono",

@@ -209,7 +209,7 @@ Design fixed by [ADR-0019](decisions/0019-compatibility-and-reach.md).
 - [x] Headless-browser fetch escalation behind `--features browser`
       (validated against real Chrome in phase 10, ADR-0020)
 
-## Phase 10: deferred items delivered (done, `v0.9.0`, ADR-0020)
+## Phase 10: deferred items delivered (done, `v0.9.1`, ADR-0020)
 
 Design fixed by
 [ADR-0020](decisions/0020-deferred-items-delivered.md).
@@ -235,9 +235,6 @@ Design fixed by
       fonts, no font embedding, zero new dependencies — no typst)
 - [x] Browser fetch rung validated against real Chrome (ADR-0019's
       acceptance test run; renders example.com end-to-end)
-
-## Unreleased
-
 - [x] Default run-artifact base moved from `agents/voyager/` to
       `.voyager/` (`--run-dir`, `VGR_RUN_DIR`, `[research] run_dir`
       overrides unchanged)

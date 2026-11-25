@@ -149,7 +149,7 @@ budget_usd = 0.50
 
 ## Status
 
-Phase 10 complete (`v0.9.0`, ADR-0020): deferred items delivered —
+Phase 10 complete (`v0.9.1`, ADR-0020): deferred items delivered —
 `--safe-search` passthrough (Tavily, cache-keyed), MCP
 `outputSchema`/`structuredContent` on the four JSON tools, the
 Streamable HTTP transport for `vygr serve` (`--http`, bearer-token

@@ -1,7 +1,7 @@
 # ADR 0020: Deferred items delivered (safe_search, MCP schemas, HTTP transport, PDF export, browser validation)
 
 - **Date:** 2026-11-07
-- **Status:** Accepted (implemented in 0.9.0)
+- **Status:** Accepted (implemented in 0.9.1)
 - **Background:** the deferred list after phases 7-9 (ADR-0019 carried
   three of them forward with "researched, low priority" verdicts): Tavily
   `safe_search` passthrough, MCP `outputSchema`, the Streamable HTTP
