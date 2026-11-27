@@ -7,8 +7,6 @@ version = "0.9.1"
 edition = "2021"
 license = "MIT"
 authors = ["Javier Altez"]
-repository = "https://github.com/jaltez/voyager"
-description = "Configurable deep research CLI with pluggable search providers and LLM backends"
 
 [workspace.dependencies]
 vygr-core = { path = "crates/core", version = "0.9.1" }
